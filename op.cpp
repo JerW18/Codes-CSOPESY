@@ -23,23 +23,23 @@ void printHeader() {
 }
 
 void initialize(){
-    cout << "initialize command recognized. Doing something." << endl;
+    cout << "'initialize' command recognized. Doing something." << endl;
 }
 
 void screen(){
-    cout << "screen command recognized. Doing something." << endl;
+    cout << "'screen' command recognized. Doing something." << endl;
 }
 
 void schedulerTest(){
-    cout << "scheduler-test command recognized. Doing something." << endl;
+    cout << "'scheduler-test' command recognized. Doing something." << endl;
 }
 
 void schedulerStop(){
-    cout << "scheduler-stop command recognized. Doing something." << endl;
+    cout << "'scheduler-stop' command recognized. Doing something." << endl;
 }
 
 void reportUtil(){
-    cout << "report-util command recognized. Doing something." << endl;
+    cout << "'report-util' command recognized. Doing something." << endl;
 }
 
 void clearScreen(){
@@ -74,7 +74,7 @@ int main (){
         cout << "Enter command: ";
         cin >> command;
         if (commands.find(command) == commands.end()) {
-            cout << "Invalid command." << endl;
+            cout << "Invalid command '"<< command << "'" << endl;
         }
         else {
             commands[command]();
