@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <map>
 
 
 using namespace std;
@@ -54,6 +55,16 @@ void exit(){
     exit(0);
 }
 
+map<string, void (*)()> commands = {
+    {"initialize", initialize},
+    {"screen", screen},
+    {"scheduler-test", schedulerTest},
+    {"scheduler-stop", schedulerStop},
+    {"report-util", reportUtil},
+    {"clear", clearScreen},
+    {"exit", exit}
+};
+
 int main (){
 
     printHeader();
@@ -62,23 +73,11 @@ int main (){
     while (true) {
         cout << "Enter command: ";
         cin >> command;
-        if (command == "exit"){
-            exit();
-        } else if (command == "clear"){
-            clearScreen();
-        } else if (command == "initialize"){
-            initialize();
-        } else if (command == "screen"){
-            screen();
-        } else if (command == "scheduler-test"){
-            schedulerTest();
-        } else if (command == "scheduler-stop"){
-            schedulerStop();
-        } else if (command == "report-util"){
-            reportUtil();
-        }
-         else {
+        if (commands.find(command) == commands.end()) {
             cout << "Invalid command." << endl;
+        }
+        else {
+            commands[command]();
         }
     }
     return 0;
