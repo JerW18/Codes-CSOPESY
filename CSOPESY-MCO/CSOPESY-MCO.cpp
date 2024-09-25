@@ -5,7 +5,9 @@
 #include <string>
 #include <cstdlib>
 #include <map>
-
+#include <sstream>
+#include <vector>
+#include "CSOPESY-MCO.h"
 
 using namespace std;
 
@@ -29,8 +31,25 @@ void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
 }
 
-void screen() {
-    cout << "'screen' command recognized. Doing something." << endl;
+void screen(const string& option, const string& name) {
+    if (option == "-r") {
+        string command = "screen -r " + name;
+        cout << "Reattaching to screen session: " << name << endl;
+        system(command.c_str());
+    }
+    else if (option == "-s") {
+        cout << "Starting new terminal session: " << name << endl;
+
+        #ifdef _WIN32
+            string command = "start cmd /k title " + name;
+        #else
+            string command = "screen -S " + name; // Unix-based system
+        #endif
+            system(command.c_str());
+    }
+    else {
+        cout << "Invalid screen option: " << option << endl;
+    }
 }
 
 void schedulerTest() {
@@ -60,7 +79,6 @@ void exit() {
 
 map<string, void (*)()> commands = {
     {"initialize", initialize},
-    {"screen", screen},
     {"scheduler-test", schedulerTest},
     {"scheduler-stop", schedulerStop},
     {"report-util", reportUtil},
@@ -68,21 +86,44 @@ map<string, void (*)()> commands = {
     {"exit", exit}
 };
 
+// Helper function to split input by spaces
+vector<string> splitInput(const string& input) {
+    vector<string> result;
+    istringstream iss(input);
+    for (string s; iss >> s;) {
+        result.push_back(s);
+    }
+    return result;
+}
+
 int main() {
 
     printHeader();
-    string command;
+    string input;
 
     while (true) {
         cout << "Enter command: ";
-        cin >> command;
-        if (commands.find(command) == commands.end()) {
-            cout << "Invalid command '" << command << "'" << endl;
+        getline(cin, input);
+
+        vector<string> tokens = splitInput(input);
+
+        if (tokens.empty()) {
+            cout << "Invalid command." << endl;
+            continue;
         }
-        else {
+
+        string command = tokens[0];
+
+        if (command == "screen" && tokens.size() >= 3) {
+            screen(tokens[1], tokens[2]);
+        }
+        else if (commands.find(command) != commands.end()) {
             commands[command]();
         }
+        else {
+            cout << "Invalid command '" << command << "'" << endl;
+        }
     }
-    return 0;
 
+    return 0;
 }
