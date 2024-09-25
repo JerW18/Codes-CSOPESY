@@ -1,6 +1,7 @@
 // CSOPESY-MCO.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#include <windows.h>
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -8,9 +9,11 @@
 #include <sstream>
 #include <vector>
 #include "CSOPESY-MCO.h"
-
+#include "command.h"
+#include "timeStamp.h"
+#include "screen.h"
 using namespace std;
-
+screenManager sm = screenManager();
 void printHeader() {
     cout << "      ___           ___           ___                         ___           ___                   \n"
         "     /  /\\         /  /\\         /  /\\          ___          /  /\\         /  /\\          __      \n"
@@ -31,11 +34,11 @@ void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
 }
 
-void screen(const string& option, const string& name) {
+void screens(const string& option, const string& name) {
     if (option == "-r") {
         string command = "screen -r " + name;
         cout << "Reattaching to screen session: " << name << endl;
-        system(command.c_str());
+        //system(command.c_str());
     }
     else if (option == "-s") {
         cout << "Starting new terminal session: " << name << endl;
@@ -45,12 +48,14 @@ void screen(const string& option, const string& name) {
         #else
             string command = "screen -S " + name; // Unix-based system
         #endif
-            system(command.c_str());
+            //system(command.c_str());
+			sm.addScreen(name, 999999);
     }
     else {
         cout << "Invalid screen option: " << option << endl;
     }
 }
+
 
 void schedulerTest() {
     cout << "'scheduler-test' command recognized. Doing something." << endl;
@@ -96,6 +101,7 @@ vector<string> splitInput(const string& input) {
     return result;
 }
 
+
 int main() {
 
     printHeader();
@@ -115,7 +121,7 @@ int main() {
         string command = tokens[0];
 
         if (command == "screen" && tokens.size() >= 3) {
-            screen(tokens[1], tokens[2]);
+            screens(tokens[1], tokens[2]);
         }
         else if (commands.find(command) != commands.end()) {
             commands[command]();
@@ -123,6 +129,7 @@ int main() {
         else {
             cout << "Invalid command '" << command << "'" << endl;
         }
+
     }
 
     return 0;

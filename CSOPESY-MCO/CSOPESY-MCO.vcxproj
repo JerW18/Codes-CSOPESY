@@ -128,6 +128,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CSOPESY-MCO.cpp" />
+    <ClCompile Include="keyboard.cpp" />
+    <ClCompile Include="screen.cpp" />
+    <ClCompile Include="timeStamp.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="command.h" />
+    <ClInclude Include="keyboard.h" />
+    <ClInclude Include="screen.h" />
+    <ClInclude Include="timeStamp.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
