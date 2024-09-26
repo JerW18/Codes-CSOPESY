@@ -12,8 +12,10 @@
 #include "command.h"
 #include "timeStamp.h"
 #include "screen.h"
+
 using namespace std;
 screenManager sm = screenManager();
+bool inScreen = false;
 void printHeader() {
     cout << "      ___           ___           ___                         ___           ___                   \n"
         "     /  /\\         /  /\\         /  /\\          ___          /  /\\         /  /\\          __      \n"
@@ -36,20 +38,44 @@ void initialize() {
 
 void screens(const string& option, const string& name) {
     if (option == "-r") {
-        string command = "screen -r " + name;
-        cout << "Reattaching to screen session: " << name << endl;
-        //system(command.c_str());
+        //find the screen with the name
+        for(auto screen : sm.screens) {
+            if(screen.getProcessName() == name) {
+                int id = screen.getId();
+                cout << "Reattaching to screen session: " << name << endl;
+                inScreen = true;
+                sm.reattatchScreen(name, id);
+                //system("screen -r " + name);
+                return;
+            }
+        }
+        cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen." << endl;
+        
     }
     else if (option == "-s") {
+        for(auto screen : sm.screens) {
+            if(screen.getProcessName() == name) {
+                cout << "Screen already exists. Try a different name or use screen -r <name> to reattatch it." << endl;
+                return;
+            }
+        }
         cout << "Starting new terminal session: " << name << endl;
-
         #ifdef _WIN32
             string command = "start cmd /k title " + name;
         #else
             string command = "screen -S " + name; // Unix-based system
         #endif
             //system(command.c_str());
-			sm.addScreen(name, 999999);
+        //check if screen already exists
+        
+		sm.addScreen(name, 999999);
+        inScreen = true;
+    }
+    else if (option == "-ls") {
+        cout << "Available Screens:" << endl;
+        for(auto screen : sm.screens) {
+            cout << screen.getProcessName() << endl;
+        }
     }
     else {
         cout << "Invalid screen option: " << option << endl;
@@ -108,9 +134,12 @@ int main() {
     string input;
 
     while (true) {
+        inScreen = sm.inScreen;
+        if(inScreen) {
+            continue;
+        }
         cout << "Enter command: ";
         getline(cin, input);
-
         vector<string> tokens = splitInput(input);
 
         if (tokens.empty()) {
@@ -124,6 +153,7 @@ int main() {
             screens(tokens[1], tokens[2]);
         }
         else if (commands.find(command) != commands.end()) {
+            //printf("Not in screen\n");
             commands[command]();
         }
         else {
