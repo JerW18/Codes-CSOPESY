@@ -128,6 +128,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CSOPESY-MCO.cpp" />
+    <ClCompile Include="global.cpp" />
     <ClCompile Include="keyboard.cpp" />
     <ClCompile Include="newScreeen.cpp" />
     <ClCompile Include="screen.cpp" />
@@ -135,6 +136,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command.h" />
+    <ClInclude Include="global.h" />
     <ClInclude Include="keyboard.h" />
     <ClInclude Include="newScreeen.h" />
     <ClInclude Include="screen.h" />

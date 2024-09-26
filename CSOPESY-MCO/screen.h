@@ -8,7 +8,9 @@
 #include <cstdlib>
 #include "keyboard.h"
 #include "timeStamp.h"
+#include "global.h"
 typedef unsigned long long ull;
+
 using namespace std;
 
 class screen {
@@ -136,8 +138,6 @@ public:
 				this->currentScreen = &x;
 				inScreen = true;
 
-				
-
 				startScreen();
 				return;
 			}
@@ -163,8 +163,14 @@ public:
 				cout << "Exiting screen " << this->currentScreen->getProcessName() << "." << endl;
 				inScreen = false;
 				this->currentScreen = nullptr;
-				//call printHeader() here
 				
+				#ifdef _WIN32
+					system("cls");
+				#else
+					system("clear");
+				#endif
+				g.printHeader();
+	
 				return;
 			}
 			else

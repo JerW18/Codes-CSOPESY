@@ -12,25 +12,14 @@
 #include "command.h"
 #include "timeStamp.h"
 #include "screen.h"
+#include "global.h"
 
 using namespace std;
+
 screenManager sm = screenManager();
+global g;
+
 bool inScreen = false;
-void printHeader() {
-    cout << "      ___           ___           ___                         ___           ___                   \n"
-        "     /  /\\         /  /\\         /  /\\          ___          /  /\\         /  /\\          __      \n"
-        "    /  /::\\       /  /::\\       /  /::\\        /  /\\        /  /::\\       /  /::\\        |  |\\    \n"
-        "   /  /:/\\:\\     /__/:/\\:\\     /  /:/\\:\\      /  /::\\      /  /:/\\:\\     /__/:/\\:\\       |  |:|   \n"
-        "  /  /:/  \\:\\   _\\_ \\:\\ \\:\\   /  /:/  \\:\\    /  /:/\\:\\    /  /::\\ \\:\\   _\\_ \\:\\ \\:\\      |  |:|   \n"
-        " /__/:/ \\  \\:\\ /__/\\ \\:\\ \\:\\ /__/:/ \\__\\:\\  /  /::\\ \\:\\  /__/:/\\:\\ \\:\\ /__/\\ \\:\\ \\:\\     |__|:|__ \n"
-        " \\  \\:\\  \\__\\/ \\  \\:\\ \\:\\_\\/ \\  \\:\\ /  /:/ /__/:/\\:\\_\\:\\ \\  \\:\\ \\:\\_\\/ \\  \\:\\ \\:\\_\\/     /  /::::\\\n"
-        "  \\  \\:\\        \\  \\:\\_\\:\\    \\  \\:\\  /:/  \\__\\/  \\:\\/:/  \\  \\:\\ \\:\\    \\  \\:\\_\\:\\      /  /:/~~~~\n"
-        "   \\  \\:\\        \\  \\:\\/:/     \\  \\:\\/:/        \\  \\::/    \\  \\:\\_\\/     \\  \\:\\/:/     /__/:/     \n"
-        "    \\  \\:\\        \\  \\::/       \\  \\::/          \\__\\/      \\  \\:\\        \\  \\::/      \\__\\/      \n"
-        "     \\__\\/         \\__\\/         \\__\\/                       \\__\\/         \\__\\/                  \n" << endl;
-    cout << "\033[32mHello! Welcome to CSOPESY commandline!\033[0m" << endl;
-    cout << "\033[33mType 'exit' to quit, 'clear' to clear the screen!\033[0m" << endl;
-}
 
 void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
@@ -82,7 +71,6 @@ void screens(const string& option, const string& name) {
     }
 }
 
-
 void schedulerTest() {
     cout << "'scheduler-test' command recognized. Doing something." << endl;
 }
@@ -101,7 +89,7 @@ void clearScreen() {
 #else
     system("clear");
 #endif
-    printHeader();
+    g.printHeader();
 }
 
 void exit() {
@@ -130,7 +118,7 @@ vector<string> splitInput(const string& input) {
 
 int main() {
 
-    printHeader();
+    g.printHeader();
     string input;
 
     while (true) {
