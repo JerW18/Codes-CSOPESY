@@ -19,4 +19,3 @@ public:
 		this->t = time(0);
 	}
 };
-
