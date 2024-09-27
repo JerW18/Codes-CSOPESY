@@ -139,7 +139,7 @@ int main() {
         if (command == "screen" && tokens.size() >= 3) {
             screens(tokens[1], tokens[2]);
         }
-        else if (command == "screen" && tokens.size() == 3) {
+        else if (command == "screen" && tokens.size() == 2) {
             screens(tokens[1], "");
         }
         else if (commands.find(command) != commands.end()) {
