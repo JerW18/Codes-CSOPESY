@@ -118,7 +118,7 @@ int main() {
             screen(tokens[1], tokens[2]);
         }
         else if (command == "screen" && tokens.size() == 2) {
-            screens(tokens[1], "");
+            screen(tokens[1], "");
         }
         else if (commands.find(command) != commands.end()) {
             commands[command]();

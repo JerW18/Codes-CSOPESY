@@ -6,7 +6,6 @@
 #include <thread>
 #include <vector>
 #include <cstdlib>
-#include "keyboard.h"
 #include "timeStamp.h"
 #include "global.h"
 typedef unsigned long long ull;
@@ -84,9 +83,10 @@ public:
 	bool inScreen = false;
 
 	void addScreen(string processName, ull totalInstructions) {
-		screens.emplace_back(processName, maxId++, totalInstructions);
+		screens.emplace_back(processName, this->maxId++, totalInstructions);
 		currentScreen = &screens.back();
 		inScreen = true;
+		this->maxId++;
 		startScreen();
 	}
 
