@@ -1,6 +1,7 @@
 // CSOPESY-MCO.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#include <windows.h>
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -8,44 +9,61 @@
 #include <sstream>
 #include <vector>
 #include "CSOPESY-MCO.h"
+#include "timeStamp.h"
+#include "screen.h"
+#include "global.h"
 
 using namespace std;
 
-void printHeader() {
-    cout << "      ___           ___           ___                         ___           ___                   \n"
-        "     /  /\\         /  /\\         /  /\\          ___          /  /\\         /  /\\          __      \n"
-        "    /  /::\\       /  /::\\       /  /::\\        /  /\\        /  /::\\       /  /::\\        |  |\\    \n"
-        "   /  /:/\\:\\     /__/:/\\:\\     /  /:/\\:\\      /  /::\\      /  /:/\\:\\     /__/:/\\:\\       |  |:|   \n"
-        "  /  /:/  \\:\\   _\\_ \\:\\ \\:\\   /  /:/  \\:\\    /  /:/\\:\\    /  /::\\ \\:\\   _\\_ \\:\\ \\:\\      |  |:|   \n"
-        " /__/:/ \\  \\:\\ /__/\\ \\:\\ \\:\\ /__/:/ \\__\\:\\  /  /::\\ \\:\\  /__/:/\\:\\ \\:\\ /__/\\ \\:\\ \\:\\     |__|:|__ \n"
-        " \\  \\:\\  \\__\\/ \\  \\:\\ \\:\\_\\/ \\  \\:\\ /  /:/ /__/:/\\:\\_\\:\\ \\  \\:\\ \\:\\_\\/ \\  \\:\\ \\:\\_\\/     /  /::::\\\n"
-        "  \\  \\:\\        \\  \\:\\_\\:\\    \\  \\:\\  /:/  \\__\\/  \\:\\/:/  \\  \\:\\ \\:\\    \\  \\:\\_\\:\\      /  /:/~~~~\n"
-        "   \\  \\:\\        \\  \\:\\/:/     \\  \\:\\/:/        \\  \\::/    \\  \\:\\_\\/     \\  \\:\\/:/     /__/:/     \n"
-        "    \\  \\:\\        \\  \\::/       \\  \\::/          \\__\\/      \\  \\:\\        \\  \\::/      \\__\\/      \n"
-        "     \\__\\/         \\__\\/         \\__\\/                       \\__\\/         \\__\\/                  \n" << endl;
-    cout << "\033[32mHello! Welcome to CSOPESY commandline!\033[0m" << endl;
-    cout << "\033[33mType 'exit' to quit, 'clear' to clear the screen!\033[0m" << endl;
-}
+screenManager sm = screenManager();
+global g;
+
+bool inScreen = false;
 
 void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
 }
 
-void screen(const string& option, const string& name) {
+void screens(const string& option, const string& name) {
     if (option == "-r") {
-        string command = "screen -r " + name;
-        cout << "Reattaching to screen session: " << name << endl;
-        system(command.c_str());
+        //find the screen with the name
+        for(auto screen : sm.screens) {
+            if(screen.getProcessName() == name) {
+                int id = screen.getId();
+                cout << "Reattaching to screen session: " << name << endl;
+                inScreen = true;
+                sm.reattatchScreen(name, id);
+                //system("screen -r " + name);
+                return;
+            }
+        }
+        cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen." << endl;
+        
     }
     else if (option == "-s") {
+        for(auto screen : sm.screens) {
+            if(screen.getProcessName() == name) {
+                cout << "Screen already exists. Try a different name or use screen -r <name> to reattatch it." << endl;
+                return;
+            }
+        }
         cout << "Starting new terminal session: " << name << endl;
-
         #ifdef _WIN32
             string command = "start cmd /k title " + name;
         #else
             string command = "screen -S " + name; // Unix-based system
         #endif
-            system(command.c_str());
+            //system(command.c_str());
+        //check if screen already exists
+        
+		sm.addScreen(name, 999999);
+        inScreen = true;
+    }
+    else if (option == "-ls") {
+        cout << "Available Screens:" << endl;
+        for(auto screen : sm.screens) {
+            cout << screen.getProcessName() << endl;
+        }
     }
     else {
         cout << "Invalid screen option: " << option << endl;
@@ -70,7 +88,7 @@ void clearScreen() {
 #else
     system("clear");
 #endif
-    printHeader();
+    g.printHeader();
 }
 
 void exit() {
@@ -96,15 +114,19 @@ vector<string> splitInput(const string& input) {
     return result;
 }
 
+
 int main() {
 
-    printHeader();
+    g.printHeader();
     string input;
 
     while (true) {
+        inScreen = sm.inScreen;
+        if(inScreen) {
+            continue;
+        }
         cout << "Enter command: ";
         getline(cin, input);
-
         vector<string> tokens = splitInput(input);
 
         if (tokens.empty()) {
@@ -115,17 +137,19 @@ int main() {
         string command = tokens[0];
 
         if (command == "screen" && tokens.size() >= 3) {
-            screen(tokens[1], tokens[2]);
+            screens(tokens[1], tokens[2]);
         }
-        else if (command == "screen" && tokens.size() == 2) {
-            screen(tokens[1], "");
+        else if (command == "screen" && tokens.size() == 3) {
+            screens(tokens[1], "");
         }
         else if (commands.find(command) != commands.end()) {
+            //printf("Not in screen\n");
             commands[command]();
         }
         else {
             cout << "Invalid command '" << command << "'" << endl;
         }
+
     }
 
     return 0;
