@@ -12,11 +12,13 @@
 #include "timeStamp.h"
 #include "screen.h"
 #include "global.h"
+#include "nvidia-smi.h"
 
 using namespace std;
 
 screenManager sm = screenManager();
 global g;
+nvidiaSMI nsmi;
 
 bool inScreen = false;
 
@@ -145,6 +147,10 @@ int main() {
         else if (commands.find(command) != commands.end()) {
             //printf("Not in screen\n");
             commands[command]();
+        }
+        else if (command == "nvidia-smi") {
+            nsmi.generateProcesses(5);
+            nsmi.printProcesses();
         }
         else {
             cout << "Invalid command '" << command << "'" << endl;
