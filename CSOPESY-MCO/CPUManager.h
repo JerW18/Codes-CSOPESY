@@ -23,13 +23,14 @@ public:
 
 
 	void run() {
-		while (true) {
+		while (!available) {
 			if (currentProcess != nullptr) {
 				if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 					currentProcess->incrementInstructionIndex();
 				}
 				else {
 					available = true;
+					currentProcess = nullptr;
 				}
 			}
 		}
@@ -37,11 +38,11 @@ public:
 
 	void assignScreen(process* process) {
 		currentProcess = process;
-		available = false;
 	}
 
 	void start() {
-		t = thread(&CPUWorker::run, this);
+		available = false;
+		thread t(&CPUWorker::run, this);
 		t.detach();
 	}
 
@@ -59,10 +60,6 @@ public:
 	CPUManager(int numCpus) {
 		cpuWorkers = new CPUWorker[numCpus];
 		this->numCpus = numCpus;
-		for (int i = 0; i < numCpus; i++)
-		{
-			cpuWorkers[i].start();
-		}
 	}
 
 	void startProcess(process* process) {
@@ -70,7 +67,7 @@ public:
 			if (cpuWorkers[i].isAvailable()) {
 				process->assignCore(i);
 				cpuWorkers[i].assignScreen(process);
-				// cpuWorkers[i].start();
+				cpuWorkers[i].start();
 				break;
 			}
 		}

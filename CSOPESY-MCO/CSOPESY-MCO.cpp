@@ -34,16 +34,6 @@ bool inScreen = false;
 
 void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
-	CPUManager cpuManager(4);
-	FCFSScheduler scheduler(&cpuManager);
-    
-    for (size_t i = 0; i < 10; i++)
-    {
-        scheduler.addProcess(&sm.processes[i]);
-    }
-    
-    thread t(&FCFSScheduler::start, &scheduler);
-    t.join();
 }
 
 void screens(const string& option, const string& name) {
@@ -166,13 +156,8 @@ vector<string> splitInput(const string& input) {
     return result;
 }
 
-
-int main() {
-
-    g.printHeader();
+void test() {
     string input;
-
-    initialize10Processes();
 
     while (true) {
         inScreen = sm.inScreen;
@@ -205,6 +190,32 @@ int main() {
         }
 
     }
+}
+
+
+int main() {
+
+    g.printHeader();
+
+    initialize10Processes();
+
+    thread testThread(test);
+
+
+    CPUManager cpuManager(4);
+    FCFSScheduler scheduler(&cpuManager);
+
+    for (size_t i = 0; i < 10; i++)
+    {
+        scheduler.addProcess(&sm.processes[i]);
+    }
+
+    thread t(&FCFSScheduler::start, &scheduler);
+	
+    testThread.join();
+    t.join();
+
+    
 
     return 0;
 }
