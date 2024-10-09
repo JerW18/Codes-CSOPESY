@@ -1,6 +1,3 @@
-// CSOPESY-MCO.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <windows.h>
 #include <iostream>
 #include <string>
@@ -15,12 +12,18 @@
 #include "CPUManager.h"
 #include "FCFSScheduler.h"
 
-
 using namespace std;
 
 screenManager sm = screenManager();
+global g;
 
-// TODO: TEMP FUNCTION DELETE AFTER
+bool inScreen = false;
+bool initialized = false; 
+CPUManager* cpuManager = nullptr;  
+FCFSScheduler* scheduler = nullptr;
+thread schedulerThread;
+
+// Function to initialize 10 processes (called inside initialize)
 void initialize10Processes() {
     for (int i = 0; i < 10; i++) {
         std::string processName = "process_" + std::to_string(i);
@@ -28,62 +31,59 @@ void initialize10Processes() {
     }
 }
 
-global g;
-
-bool inScreen = false;
-
 void initialize() {
-    cout << "'initialize' command recognized. Doing something." << endl;
+    if (!initialized) {
+        cout << "'initialize' command recognized. Initializing processes and starting scheduler." << endl;
+
+        initialize10Processes();
+
+        cpuManager = new CPUManager(4); 
+        scheduler = new FCFSScheduler(cpuManager);
+
+        for (size_t i = 0; i < 10; i++) {
+            scheduler->addProcess(&sm.processes[i]);
+        }
+
+        // Start the scheduler in a new thread
+        schedulerThread = thread(&FCFSScheduler::start, scheduler);
+
+        initialized = true;  
+    }
+    else {
+        cout << "'initialize' command has already been executed." << endl;
+    }
 }
 
 void screens(const string& option, const string& name) {
     if (option == "-r") {
-        //find the screen with the name
-        for(auto screen : sm.processes) {
-            if(screen.getProcessName() == name) {
+        for (auto screen : sm.processes) {
+            if (screen.getProcessName() == name) {
                 int id = screen.getId();
                 cout << "Reattaching to screen session: " << name << endl;
                 inScreen = true;
                 sm.reattatchProcess(name, id);
-                //system("screen -r " + name);
                 return;
             }
         }
         cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen." << endl;
-        
     }
     else if (option == "-s") {
-        for(auto screen : sm.processes) {
-            if(screen.getProcessName() == name) {
-                cout << "Screen already exists. Try a different name or use screen -r <name> to reattatch it." << endl;
+        for (auto screen : sm.processes) {
+            if (screen.getProcessName() == name) {
+                cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it." << endl;
                 return;
             }
         }
         cout << "Starting new terminal session: " << name << endl;
-        #ifdef _WIN32
-            string command = "start cmd /k title " + name;
-        #else
-            string command = "screen -S " + name; // Unix-based system
-        #endif
-            //system(command.c_str());
-        //check if screen already exists
-        
-		sm.addProcess(name, 999999);
+        sm.addProcess(name, 999999);
         inScreen = true;
     }
     else if (option == "-ls") {
-        // TODO: Change Back
-        /*cout << "Available Screens:" << endl;
-        for(auto screen : sm.processes) {
-            cout << screen.getProcessName() << endl;
-        }*/
-
-        // Print the list of running and finished processes
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
 
         for (auto screen : sm.processes) {
-            if (!screen.isFinished()) { // Assuming you have an `isFinished()` function
+            if (!screen.isFinished()) {
                 cout << screen.getProcessName() << " ("
                     << screen.getDateOfBirth() << ") Core: "
                     << screen.getCoreAssigned() << " "
@@ -112,18 +112,6 @@ void screens(const string& option, const string& name) {
     }
 }
 
-void schedulerTest() {
-    cout << "'scheduler-test' command recognized. Doing something." << endl;
-}
-
-void schedulerStop() {
-    cout << "'scheduler-stop' command recognized. Doing something." << endl;
-}
-
-void reportUtil() {
-    cout << "'report-util' command recognized. Doing something." << endl;
-}
-
 void clearScreen() {
 #ifdef _WIN32
     system("cls");
@@ -133,20 +121,21 @@ void clearScreen() {
     g.printHeader();
 }
 
-void exit() {
+void exitProgram() {
+    if (schedulerThread.joinable()) {
+        schedulerThread.join();  
+    }
     exit(0);
 }
 
+
 map<string, void (*)()> commands = {
     {"initialize", initialize},
-    {"scheduler-test", schedulerTest},
-    {"scheduler-stop", schedulerStop},
-    {"report-util", reportUtil},
     {"clear", clearScreen},
-    {"exit", exit}
+    {"exit", exitProgram}
 };
 
-// Helper function to split input by spaces
+
 vector<string> splitInput(const string& input) {
     vector<string> result;
     istringstream iss(input);
@@ -156,14 +145,10 @@ vector<string> splitInput(const string& input) {
     return result;
 }
 
+
 void test() {
     string input;
-
     while (true) {
-        inScreen = sm.inScreen;
-        /*if(inScreen) {
-            continue;
-        }*/
         cout << "Enter command: ";
         getline(cin, input);
         vector<string> tokens = splitInput(input);
@@ -182,40 +167,20 @@ void test() {
             screens(tokens[1], "");
         }
         else if (commands.find(command) != commands.end()) {
-            //printf("Not in screen\n");
             commands[command]();
         }
         else {
             cout << "Invalid command '" << command << "'" << endl;
         }
-
     }
 }
 
-
 int main() {
-
     g.printHeader();
 
-    initialize10Processes();
-
+    // Only start command loop, initialization happens after 'initialize' command
     thread testThread(test);
-
-
-    CPUManager cpuManager(4);
-    FCFSScheduler scheduler(&cpuManager);
-
-    for (size_t i = 0; i < 10; i++)
-    {
-        scheduler.addProcess(&sm.processes[i]);
-    }
-
-    thread t(&FCFSScheduler::start, &scheduler);
-	
     testThread.join();
-    t.join();
-
-    
 
     return 0;
 }
