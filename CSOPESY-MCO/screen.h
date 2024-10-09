@@ -129,7 +129,7 @@ public:
 		system("cls");
 		cout << "Process: " << this->currentProcess->getProcessName() << endl;
 		cout << "Date of birth: " << this->currentProcess->getDateOfBirth() << endl;
-		cout << "Instruction: " << this->currentProcess->getInstructionIndex() << "/" << this->currentScreen->getTotalInstructions() << endl;
+		cout << "Instruction: " << this->currentProcess->getInstructionIndex() << "/" << this->currentProcess->getTotalInstructions() << endl;
 		this->currentProcess->printInputHistory();
 
 		while (true){
@@ -137,7 +137,7 @@ public:
 			string input;
 			getline(cin, input);
 			this->currentProcess->addInstructionToHistory(0, input);
-			this->currentProcess->incrementInstructionIndex1();
+			this->currentProcess->incrementInstructionIndex();
 			if(input == "exit") {
 				cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
 				inScreen = false;
@@ -155,7 +155,7 @@ public:
 			else
 				{
 					cout << "Invalid screen command \"" << input << "\"." << endl;
-					this->currentProcess->incrementInstructionIndex1();
+					this->currentProcess->incrementInstructionIndex();
 					this->currentProcess->addInstructionToHistory(1, input);
 				}
     }

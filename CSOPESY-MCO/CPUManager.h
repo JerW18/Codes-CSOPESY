@@ -26,7 +26,7 @@ public:
 		while (available) {
 			if (currentProcess != nullptr) {
 				if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-					currentProcess->incrementInstructionIndex1();
+					currentProcess->incrementInstructionIndex();
 				}
 				else {
 					available = false;

@@ -27,12 +27,12 @@ void initialize() {
 void screens(const string& option, const string& name) {
     if (option == "-r") {
         //find the screen with the name
-        for(auto screen : sm.screens) {
+        for(auto screen : sm.processes) {
             if(screen.getProcessName() == name) {
                 int id = screen.getId();
                 cout << "Reattaching to screen session: " << name << endl;
                 inScreen = true;
-                sm.reattatchScreen(name, id);
+                sm.reattatchProcess(name, id);
                 //system("screen -r " + name);
                 return;
             }
@@ -41,7 +41,7 @@ void screens(const string& option, const string& name) {
         
     }
     else if (option == "-s") {
-        for(auto screen : sm.screens) {
+        for(auto screen : sm.processes) {
             if(screen.getProcessName() == name) {
                 cout << "Screen already exists. Try a different name or use screen -r <name> to reattatch it." << endl;
                 return;
@@ -56,12 +56,12 @@ void screens(const string& option, const string& name) {
             //system(command.c_str());
         //check if screen already exists
         
-		sm.addScreen(name, 999999);
+		sm.addProcess(name, 999999);
         inScreen = true;
     }
     else if (option == "-ls") {
         cout << "Available Screens:" << endl;
-        for(auto screen : sm.screens) {
+        for(auto screen : sm.processes) {
             cout << screen.getProcessName() << endl;
         }
     }
