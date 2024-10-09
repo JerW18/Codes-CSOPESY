@@ -13,7 +13,7 @@ typedef unsigned long long ull;
 
 using namespace std;
 
-class screen {
+class process {
 private:
 	string processName;
 	ull id;
@@ -61,7 +61,7 @@ public:
 
 	void printIntstructionIndex() {
 		cout << "Instruction: " << this->instructionIndex << "/" << this->totalInstructions << endl;
-	}
+	}                                                                              
 
 	void printInputHistory() {
 		for (auto& x : this->inputHistory) {
@@ -74,15 +74,15 @@ public:
 		}
 	}
 
-	screen(string processName, ull id, ull totalInstructions) {
+	process(string processName, ull id, ull totalInstructions) {
 		this->processName = processName;
 		this->id = id;
 		this->totalInstructions = totalInstructions;
 		this->dateOfBirth = timeStamp();
-		thread t(&screen::incrementInstructionIndex, this);
-		t.detach();
+		//thread t(&screen::incrementInstructionIndex, this);
+		//t.detach();
 	}
-	~screen() {
+	~process() {
 		//cout << "Screen " << this->processName << " has been destroyed." << endl;
 	}
 };
@@ -92,77 +92,77 @@ private:
 	ull maxId = 0;
 	keyboard* kb = new keyboard();
 	thread renderThread;
-	screen* currentScreen = nullptr;
+	process* currentProcess = nullptr;
 	//vector<string> inputHistory;
 	//vector<shared_ptr<screen>> screens;
 	//shared_ptr<screen> currentScreen = nullptr;
 public:
-	vector<screen> screens;
+	vector<process> processes;
 	bool inScreen = false;
-	void printScreens() {
-		for (auto& x : this->screens) {
-			cout << "Screen: " << to_string(x.getId()) << endl;
+	void printProcess() {
+		for (auto& x : this->processes) {
+			cout << "Process: " << to_string(x.getId()) << endl;
 		}
 	}
-	void addScreen(string processName, ull totalInstructions) {
-		screens.emplace_back(processName, maxId++, totalInstructions);
-		currentScreen = &screens.back();
+	void addProcess(string processName, ull totalInstructions) {
+		processes.emplace_back(processName, maxId++, totalInstructions);
+		currentProcess = &processes.back();
 		// if (!renderThread.joinable()) {
 		// 	renderThread = thread(&screenManager::renderScreen, this);
 		// 	renderThread.detach();
 		// }
 		inScreen = true;
-		startScreen();
+		startProcess();
 	}
 
-	void removeScreen(string processName) {
-		for (ull i = 0; i < screens.size(); i++) {
-			if (this->screens[i].getProcessName() == processName) {
-				this->screens.erase(this->screens.begin() + i);
+	void removeProcess(string processName) {
+		for (ull i = 0; i < processes.size(); i++) {
+			if (this->processes[i].getProcessName() == processName) {
+				this->processes.erase(this->processes.begin() + i);
 				return;
 			}
 		}
-		cout << "Screen " << processName << " not found." << endl;
+		cout << "Process " << processName << " not found." << endl;
 	}
 
-	void listScreens() {
-		cout << "Screens:" << endl;
-		for (auto &x : this->screens) {
-			cout << "Screen: " << to_string(x.getId()) << endl;
+	void listProcess() {
+		cout << "Processes:" << endl;
+		for (auto &x : this->processes) {
+			cout << "Process: " << to_string(x.getId()) << endl;
 		}
 	}
 
-	void reattatchScreen(string processName, int id) {
-		for (auto &x : this->screens) {
+	void reattatchProcess(string processName, int id) {
+		for (auto &x : this->processes) {
 			if (x.getProcessName() == processName && x.getId() == id) {
-				this->currentScreen = &x;
+				this->currentProcess = &x;
 				inScreen = true;
 
-				startScreen();
+				startProcess();
 				return;
 			}
 		}
 		cout << "Screen " << processName << " not found." << endl;
 	}
 
-	void startScreen() {
-		if (this->currentScreen == nullptr) {return;}
+	void startProcess() {
+		if (this->currentProcess == nullptr) {return;}
 		system("cls");
-		cout << "Process: " << this->currentScreen->getProcessName() << endl;
-		cout << "Date of birth: " << this->currentScreen->getDateOfBirth() << endl;
-		cout << "Instruction: " << this->currentScreen->getInstructionIndex() << "/" << this->currentScreen->getTotalInstructions() << endl;
-		this->currentScreen->printInputHistory();
+		cout << "Process: " << this->currentProcess->getProcessName() << endl;
+		cout << "Date of birth: " << this->currentProcess->getDateOfBirth() << endl;
+		cout << "Instruction: " << this->currentProcess->getInstructionIndex() << "/" << this->currentScreen->getTotalInstructions() << endl;
+		this->currentProcess->printInputHistory();
 
 		while (true){
 			cout << "Enter screen command: ";
 			string input;
 			getline(cin, input);
-			this->currentScreen->addInstructionToHistory(0, input);
-			this->currentScreen->incrementInstructionIndex1();
+			this->currentProcess->addInstructionToHistory(0, input);
+			this->currentProcess->incrementInstructionIndex1();
 			if(input == "exit") {
-				cout << "Exiting screen " << this->currentScreen->getProcessName() << "." << endl;
+				cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
 				inScreen = false;
-				this->currentScreen = nullptr;
+				this->currentProcess = nullptr;
 				
 				#ifdef _WIN32
 					system("cls");
@@ -176,8 +176,8 @@ public:
 			else
 				{
 					cout << "Invalid screen command \"" << input << "\"." << endl;
-					this->currentScreen->incrementInstructionIndex1();
-					this->currentScreen->addInstructionToHistory(1, input);
+					this->currentProcess->incrementInstructionIndex1();
+					this->currentProcess->addInstructionToHistory(1, input);
 				}
 		}
 		
