@@ -6,7 +6,6 @@
 #include <thread>
 #include <vector>
 #include <cstdlib>
-#include "keyboard.h"
 #include "timeStamp.h"
 #include "global.h"
 typedef unsigned long long ull;
@@ -21,13 +20,6 @@ private:
 	ull totalInstructions = 0;
 	timeStamp dateOfBirth;
 	vector<pair<int, string>> inputHistory;
-
-	void incrementInstructionIndex() {
-		while (this && this->totalInstructions > this->instructionIndex) {
-			//this->instructionIndex++;
-			Sleep(1000);
-		}
-	}
 
 public:
 	string getProcessName() {
@@ -46,7 +38,7 @@ public:
 		return this->totalInstructions;
 	}
 
-	void incrementInstructionIndex1() {
+	void incrementInstructionIndex() {
 		this->instructionIndex++;
 	}
 
@@ -61,7 +53,7 @@ public:
 
 	void printIntstructionIndex() {
 		cout << "Instruction: " << this->instructionIndex << "/" << this->totalInstructions << endl;
-	}                                                                              
+	}                
 
 	void printInputHistory() {
 		for (auto& x : this->inputHistory) {
@@ -79,23 +71,13 @@ public:
 		this->id = id;
 		this->totalInstructions = totalInstructions;
 		this->dateOfBirth = timeStamp();
-		//thread t(&screen::incrementInstructionIndex, this);
-		//t.detach();
-	}
-	~process() {
-		//cout << "Screen " << this->processName << " has been destroyed." << endl;
 	}
 };
 
 class screenManager {
 private:
 	ull maxId = 0;
-	keyboard* kb = new keyboard();
-	thread renderThread;
 	process* currentProcess = nullptr;
-	//vector<string> inputHistory;
-	//vector<shared_ptr<screen>> screens;
-	//shared_ptr<screen> currentScreen = nullptr;
 public:
 	vector<process> processes;
 	bool inScreen = false;
@@ -107,11 +89,8 @@ public:
 	void addProcess(string processName, ull totalInstructions) {
 		processes.emplace_back(processName, maxId++, totalInstructions);
 		currentProcess = &processes.back();
-		// if (!renderThread.joinable()) {
-		// 	renderThread = thread(&screenManager::renderScreen, this);
-		// 	renderThread.detach();
-		// }
 		inScreen = true;
+    this->maxId++;
 		startProcess();
 	}
 
@@ -163,7 +142,7 @@ public:
 				cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
 				inScreen = false;
 				this->currentProcess = nullptr;
-				
+
 				#ifdef _WIN32
 					system("cls");
 				#else
@@ -179,46 +158,6 @@ public:
 					this->currentProcess->incrementInstructionIndex1();
 					this->currentProcess->addInstructionToHistory(1, input);
 				}
-		}
-		
-		/*
-		cout << "Enter command: " << this->kb->getInput();
-		string input = this->kb->getInput();
-		if(input == "exit1") {
-			this->currentScreen = nullptr;
-			return;
-		}
-		*/
-		/*
-		while (true) {
-			#ifdef _WIN32
-				system("cls");
-			#else
-				system("clear");
-			#endif
-			cout << "Process: " << this->currentScreen->getProcessName() << endl;
-			cout << "Date of birth: " << this->currentScreen->getDateOfBirth() << endl;
-			cout << "Instruction: " << this->currentScreen->getInstructionIndex() << "/" << this->currentScreen->getTotalInstructions() << endl;
-			cout << "Enter command: " << this->kb->getInput();
-
-			// Print the input history
-            for (const auto& input : inputHistory) {
-                cout << input << endl;
-            }
-
-            // Get and store the new input
-            string input = this->kb->getInput();
-            inputHistory.push_back("Enter command: " + input);
-
-            // Sleep for a while
-            Sleep(100);
-
-            // Check for exit command
-            if (input == "exit") {
-                this->currentScreen = nullptr;
-                return;
-            }
-		}
-		*/
+    }
 	}
 };

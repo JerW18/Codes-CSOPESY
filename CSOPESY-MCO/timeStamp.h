@@ -3,8 +3,9 @@
 #include <string>
 using namespace std;
 class timeStamp {
-	public: 
-		time_t t;
+
+public: 
+	time_t t;
 
 	string getTimeStamp() {
 		struct tm ltm;
@@ -19,4 +20,3 @@ class timeStamp {
 		this->t = time(0);
 	}
 };
-

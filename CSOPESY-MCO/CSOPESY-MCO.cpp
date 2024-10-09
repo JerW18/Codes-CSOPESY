@@ -9,7 +9,6 @@
 #include <sstream>
 #include <vector>
 #include "CSOPESY-MCO.h"
-#include "command.h"
 #include "timeStamp.h"
 #include "screen.h"
 #include "global.h"
@@ -139,6 +138,9 @@ int main() {
 
         if (command == "screen" && tokens.size() >= 3) {
             screens(tokens[1], tokens[2]);
+        }
+        else if (command == "screen" && tokens.size() == 2) {
+            screens(tokens[1], "");
         }
         else if (commands.find(command) != commands.end()) {
             //printf("Not in screen\n");

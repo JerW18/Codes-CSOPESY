@@ -129,23 +129,15 @@
   <ItemGroup>
     <ClCompile Include="CSOPESY-MCO.cpp" />
     <ClCompile Include="global.cpp" />
-    <ClCompile Include="keyboard.cpp" />
-    <ClCompile Include="newScreeen.cpp" />
     <ClCompile Include="screen.cpp" />
     <ClCompile Include="timeStamp.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="command.h" />
     <ClInclude Include="CPUManager.h" />
     <ClInclude Include="FCFSScheduler.h" />
     <ClInclude Include="global.h" />
-    <ClInclude Include="keyboard.h" />
-    <ClInclude Include="newScreeen.h" />
     <ClInclude Include="screen.h" />
     <ClInclude Include="timeStamp.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="cpp.hint" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
