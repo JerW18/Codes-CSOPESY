@@ -133,6 +133,8 @@
     <ClCompile Include="timeStamp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CPUManager.h" />
+    <ClInclude Include="FCFSScheduler.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="screen.h" />
     <ClInclude Include="timeStamp.h" />

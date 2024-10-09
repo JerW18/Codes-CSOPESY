@@ -3,6 +3,7 @@
 #include <string>
 using namespace std;
 class timeStamp {
+
 public: 
 	time_t t;
 
