@@ -8,7 +8,7 @@ using namespace std;
 class CPUWorker
 {
 private:
-	static int id; 
+	int id; 
 	int cpu_Id;
 	process* currentProcess;
 	bool available;
@@ -23,26 +23,26 @@ public:
 
 
 	void run() {
-		while (available) {
+		while (true) {
 			if (currentProcess != nullptr) {
 				if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 					currentProcess->incrementInstructionIndex();
 				}
 				else {
-					available = false;
+					available = true;
 				}
 			}
 		}
-
 	}
 
 	void assignScreen(process* process) {
 		currentProcess = process;
+		available = false;
 	}
 
 	void start() {
-		thread t(&CPUWorker::run, this);
-		t.join();
+		t = thread(&CPUWorker::run, this);
+		t.detach();
 	}
 
 	bool isAvailable() {
@@ -59,13 +59,18 @@ public:
 	CPUManager(int numCpus) {
 		cpuWorkers = new CPUWorker[numCpus];
 		this->numCpus = numCpus;
+		for (int i = 0; i < numCpus; i++)
+		{
+			cpuWorkers[i].start();
+		}
 	}
 
 	void startProcess(process* process) {
 		for (int i = 0; i < numCpus; i++) {
 			if (cpuWorkers[i].isAvailable()) {
+				process->assignCore(i);
 				cpuWorkers[i].assignScreen(process);
-				cpuWorkers[i].start();
+				// cpuWorkers[i].start();
 				break;
 			}
 		}

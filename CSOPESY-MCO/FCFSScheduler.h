@@ -1,5 +1,5 @@
 #pragma once
-#include <queue>]
+#include <queue>
 #include "screen.h"
 #include "CPUManager.h"
 
@@ -15,7 +15,7 @@ public:
 		this->cpuManager = cpuManager;
 	}
 
-	void addScreen(process* process) {
+	void addProcess(process* process) {
 		processes.push(process);
 	}
 
@@ -26,8 +26,6 @@ public:
 			cpuManager->startProcess(currentProcess);
 		}
 	}
-
-
 };
 
 

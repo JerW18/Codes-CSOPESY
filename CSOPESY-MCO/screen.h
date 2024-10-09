@@ -20,6 +20,7 @@ private:
 	ull totalInstructions = 0;
 	timeStamp dateOfBirth;
 	vector<pair<int, string>> inputHistory;
+	int coreAssigned = -1;
 
 public:
 	string getProcessName() {
@@ -36,6 +37,9 @@ public:
 	}
 	ull getTotalInstructions() {
 		return this->totalInstructions;
+	}
+	int getCoreAssigned() {
+		return this->coreAssigned;
 	}
 
 	void incrementInstructionIndex() {
@@ -66,6 +70,14 @@ public:
 		}
 	}
 
+	bool isFinished() {
+		return instructionIndex >= totalInstructions;
+	}
+
+	void assignCore(int core) {
+		this->coreAssigned = core;
+	}
+
 	process(string processName, ull id, ull totalInstructions) {
 		this->processName = processName;
 		this->id = id;
@@ -90,8 +102,9 @@ public:
 		processes.emplace_back(processName, maxId++, totalInstructions);
 		currentProcess = &processes.back();
 		inScreen = true;
-    this->maxId++;
-		startProcess();
+		this->maxId++;
+		// TODO: Uncomment after testing
+		// startProcess();
 	}
 
 	void removeProcess(string processName) {

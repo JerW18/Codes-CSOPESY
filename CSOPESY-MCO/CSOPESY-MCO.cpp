@@ -12,16 +12,38 @@
 #include "timeStamp.h"
 #include "screen.h"
 #include "global.h"
+#include "CPUManager.h"
+#include "FCFSScheduler.h"
+
 
 using namespace std;
 
 screenManager sm = screenManager();
+
+// TODO: TEMP FUNCTION DELETE AFTER
+void initialize10Processes() {
+    for (int i = 0; i < 10; i++) {
+        std::string processName = "process_" + std::to_string(i);
+        sm.addProcess(processName, 100);
+    }
+}
+
 global g;
 
 bool inScreen = false;
 
 void initialize() {
     cout << "'initialize' command recognized. Doing something." << endl;
+	CPUManager cpuManager(4);
+	FCFSScheduler scheduler(&cpuManager);
+    
+    for (size_t i = 0; i < 10; i++)
+    {
+        scheduler.addProcess(&sm.processes[i]);
+    }
+    
+    thread t(&FCFSScheduler::start, &scheduler);
+    t.join();
 }
 
 void screens(const string& option, const string& name) {
@@ -60,10 +82,40 @@ void screens(const string& option, const string& name) {
         inScreen = true;
     }
     else if (option == "-ls") {
-        cout << "Available Screens:" << endl;
+        // TODO: Change Back
+        /*cout << "Available Screens:" << endl;
         for(auto screen : sm.processes) {
             cout << screen.getProcessName() << endl;
+        }*/
+
+        // Print the list of running and finished processes
+        cout << "----------------------------------" << endl;
+        cout << "Running Processes:" << endl;
+
+        for (auto screen : sm.processes) {
+            if (!screen.isFinished()) { // Assuming you have an `isFinished()` function
+                cout << screen.getProcessName() << " ("
+                    << screen.getDateOfBirth() << ") Core: "
+                    << screen.getCoreAssigned() << " "
+                    << screen.getInstructionIndex() << " / "
+                    << screen.getTotalInstructions() << endl;
+            }
         }
+
+        cout << endl;
+        cout << "Finished Processes:" << endl;
+
+        for (auto screen : sm.processes) {
+            if (screen.isFinished()) {
+                cout << screen.getProcessName() << " ("
+                    << screen.getDateOfBirth() << ") Core: "
+                    << screen.getCoreAssigned() << " Finished "
+                    << screen.getTotalInstructions() << " / "
+                    << screen.getTotalInstructions() << endl;
+            }
+        }
+
+        cout << "----------------------------------" << endl;
     }
     else {
         cout << "Invalid screen option: " << option << endl;
@@ -120,11 +172,13 @@ int main() {
     g.printHeader();
     string input;
 
+    initialize10Processes();
+
     while (true) {
         inScreen = sm.inScreen;
-        if(inScreen) {
+        /*if(inScreen) {
             continue;
-        }
+        }*/
         cout << "Enter command: ";
         getline(cin, input);
         vector<string> tokens = splitInput(input);
