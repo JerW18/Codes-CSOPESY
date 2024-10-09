@@ -136,6 +136,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command.h" />
+    <ClInclude Include="CPUManager.h" />
+    <ClInclude Include="FCFSScheduler.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="keyboard.h" />
     <ClInclude Include="newScreeen.h" />
