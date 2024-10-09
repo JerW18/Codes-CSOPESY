@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <cstdlib>  // For rand, srand
-#include <ctime>    // For time
-#include <iomanip>  // For setw and formatting
+#include <cstdlib>
+#include <ctime>    
+#include <iomanip>  
 #include "timeStamp.h"
 
 using namespace std;
@@ -61,7 +61,6 @@ public:
         cout << "|        ID   ID                                                               Usage      |" << endl;
         printSeparator3();
         string temp;
-        // Adjust spacing using setw for columns
         for (const auto& p : processes) {
             temp = p.processName;
             //if name too long, truncate to ...<name>
@@ -69,7 +68,7 @@ public:
                 temp = "..." + p.processName.substr(p.processName.length() - 32, 32);
 			}
             else {
-                while (temp.length() < 34) {
+                while (temp.length() <= 34) {
                     temp += " ";  
                 }
             }
@@ -80,9 +79,8 @@ public:
                 << "    " << setw(4) << p.pid  
                 << "  " << setw(8) << p.type  
                 << "   " << setw(9) << temp;
-            cout << "    " << right << setw(6) << p.gpuMemUsage << "MiB    |" << endl;  // GPU memory usage
+            cout << "    " << right << setw(6) << p.gpuMemUsage << "MiB    |" << endl;
         }
-
         printSeparator1();
     }
 
@@ -99,15 +97,13 @@ public:
             p.gpuMemUsage = (rand() % 500) + 100;  
 
             // add random characters to process name
-            for (int i = 0; i < rand()%40 + 20; i++) {
+            for (int i = 0; i < rand()%40+20; i++) {
                p.processName += (char)(rand() % 26 + 65);
             }
             p.processName += "\\process" + to_string(i) + ".exe";
 
             processes.push_back(p);
         }
-        
-        
     }
 
     void clearProcesses() {
