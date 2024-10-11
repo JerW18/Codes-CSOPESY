@@ -3,8 +3,12 @@
 #include <thread>
 #include <iostream>
 #include <atomic> 
+#include "timeStamp.h"
+
+#include <fstream>
 
 using namespace std;
+
 
 class CPUWorker {
 private:
@@ -13,15 +17,39 @@ private:
     atomic<bool> available; 
     thread workerThread;
 
+	// TODO: Remove after testing
+    void printTimeAndMessage(ofstream& outFile, int core, string processName) {
+        timeStamp t;
+
+        outFile << "(" << t.getTimeStamp() << ")"
+            << " Core: " << core
+            << " \"Hello World from " << processName << "\"" << endl;
+    }
+
     void run() {
+
         while (true) {
             if (!available && currentProcess != nullptr) {
+                string fileName = "output/" + currentProcess->getProcessName() + ".txt";
+                ofstream outFile(fileName, ios::app);
+
+                if (!outFile.is_open()) {
+                    cerr << "Failed to open file: " << fileName << endl;
+                    return;
+                }
+
+                outFile << "Process Name: " << currentProcess->getProcessName() << endl;
+                outFile << "Logs: " << endl << endl;
+
                 while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                     currentProcess->incrementInstructionIndex();
+                    printTimeAndMessage(outFile, cpu_Id, currentProcess->getProcessName());
                     this_thread::sleep_for(chrono::milliseconds(100));  
                 }
                 available = true;
                 currentProcess = nullptr;
+
+                outFile.close();
             }
             
             this_thread::sleep_for(chrono::milliseconds(10));
