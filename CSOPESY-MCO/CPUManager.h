@@ -16,48 +16,41 @@ private:
     process* currentProcess;
     atomic<bool> available; 
     thread workerThread;
-
-	// TODO: Remove after testing
-    void printTimeAndMessage(ofstream& outFile, int core, string processName) {
-        timeStamp t;
-
-        outFile << "(" << t.getTimeStamp() << ")"
-            << " Core: " << core
-            << " \"Hello World from " << processName << "\"" << endl;
-    }
+	int quantumCycles;
+    string schedulerType;
 
     void run() {
-
         while (true) {
             if (!available && currentProcess != nullptr) {
-                string fileName = "output/" + currentProcess->getProcessName() + ".txt";
-                ofstream outFile(fileName, ios::app);
+                int instructionsExecuted = 0;
 
-                if (!outFile.is_open()) {
-                    cerr << "Failed to open file: " << fileName << endl;
-                    return;
+                if (schedulerType == "rr") {
+                    while (instructionsExecuted < quantumCycles &&
+                        currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        currentProcess->incrementInstructionIndex();
+                        instructionsExecuted++;
+                        this_thread::sleep_for(chrono::milliseconds(100));
+                    }
+
+                    available = true;
+                    currentProcess = nullptr;
                 }
-
-                outFile << "Process Name: " << currentProcess->getProcessName() << endl;
-                outFile << "Logs: " << endl << endl;
-
-                while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                    currentProcess->incrementInstructionIndex();
-                    printTimeAndMessage(outFile, cpu_Id, currentProcess->getProcessName());
-                    this_thread::sleep_for(chrono::milliseconds(100));  
+                else if (schedulerType == "fcfs") {
+                    while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        currentProcess->incrementInstructionIndex();
+                        this_thread::sleep_for(chrono::milliseconds(100)); 
+                    }
+                    available = true; 
+                    currentProcess = nullptr; 
                 }
-                available = true;
-                currentProcess = nullptr;
-
-                outFile.close();
             }
-            
-            this_thread::sleep_for(chrono::milliseconds(10));
+
+            this_thread::sleep_for(chrono::milliseconds(10)); 
         }
     }
 
 public:
-    CPUWorker(int id) : cpu_Id(id), available(true), currentProcess(nullptr) {
+    CPUWorker(int id, int quantumCycles, string schedulerType) : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), schedulerType(schedulerType) {
         workerThread = thread(&CPUWorker::run, this);  
     }
 
@@ -67,7 +60,6 @@ public:
         }
     }
 
-    
     void assignScreen(process* proc) {
         currentProcess = proc;
         available = false;
@@ -85,9 +77,9 @@ private:
     int numCpus;
 
 public:
-    CPUManager(int numCpus) : numCpus(numCpus) {
+    CPUManager(int numCpus, int quantumCycles, string schedulerType) : numCpus(numCpus) {
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i));
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, schedulerType));
         }
     }
 

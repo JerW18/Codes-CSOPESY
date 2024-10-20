@@ -11,6 +11,7 @@
 #include "global.h"
 #include "CPUManager.h"
 #include "FCFSScheduler.h"
+#include "RRScheduler.h"
 
 using namespace std;
 
@@ -23,13 +24,12 @@ CPUManager* cpuManager = nullptr;
 FCFSScheduler* scheduler = nullptr;
 thread schedulerThread;
 
-// Function to initialize 10 processes (called inside initialize)
-//void initialize10Processes() {
-//    for (int i = 0; i < 10; i++) {
-//        std::string processName = "process_" + std::to_string(i);
-//        sm.addProcess(processName, 100);
-//    }
-//}
+void initialize10Processes() {
+    for (int i = 0; i < 10; i++) {
+        std::string processName = "process_" + std::to_string(i);
+        sm.addProcess(processName, 100);
+    }
+}
 
 // Variables to hold config values
 int numCPU = 1;
@@ -102,9 +102,22 @@ void initialize() {
 
         if (schedulerType == "fcfs") {
 			// Initialize CPUManager and FCFSScheduler
+            CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+            FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
+            schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
         }
         else if (schedulerType == "rr") {
 			// Initialize CPUManager and RoundRobinScheduler
+            CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+            RRScheduler* rrScheduler = new RRScheduler(cpuManager);  
+
+            initialize10Processes();
+
+            for (size_t i = 0; i < 10; i++) {
+                rrScheduler->addProcess(&sm.processes[i]);
+            }
+
+            schedulerThread = thread(&RRScheduler::start, rrScheduler);
         }
         else {
             cerr << "Error: Unknown scheduler type specified in config file." << endl;
