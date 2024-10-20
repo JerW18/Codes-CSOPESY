@@ -24,28 +24,92 @@ FCFSScheduler* scheduler = nullptr;
 thread schedulerThread;
 
 // Function to initialize 10 processes (called inside initialize)
-void initialize10Processes() {
-    for (int i = 0; i < 10; i++) {
-        std::string processName = "process_" + std::to_string(i);
-        sm.addProcess(processName, 100);
+//void initialize10Processes() {
+//    for (int i = 0; i < 10; i++) {
+//        std::string processName = "process_" + std::to_string(i);
+//        sm.addProcess(processName, 100);
+//    }
+//}
+
+// Variables to hold config values
+int numCPU = 1;
+string schedulerType = "fcfs";
+int quantumCycles = 0;
+int batchProcessFreq = 0;
+int minInstructions = 0;
+int maxInstructions = 0;
+int delaysPerExec = 0;
+
+// Helper function to trim quotes and whitespace from a string
+string trim(const string& str) {
+    size_t start = str.find_first_not_of(" \t\"");
+    size_t end = str.find_last_not_of(" \t\"");
+    return (start == string::npos || end == string::npos) ? "" : str.substr(start, end - start + 1);
+}
+
+// Function to read configuration values
+void readConfig(const string& filename) {
+    ifstream configFile(filename);
+    if (!configFile.is_open()) {
+        cerr << "Error: Could not open config file." << endl;
+        return;
     }
+
+    string line;
+    while (getline(configFile, line)) {
+        stringstream ss(line);
+        string key, value;
+
+        // Read the key
+        if (ss >> key) {
+            // Read the rest of the line as the value (without trimming)
+            ss >> ws; // Ignore leading whitespace
+            getline(ss, value);
+
+            // Assign the value to the appropriate variable based on the key
+            if (key == "num-cpu") {
+                numCPU = stoi(value);
+            }
+            else if (key == "scheduler") {
+                schedulerType = trim(value);
+            }
+            else if (key == "quantum-cycles") {
+                quantumCycles = stoi(value);
+            }
+            else if (key == "batch-process-freq") {
+                batchProcessFreq = stoi(value);
+            }
+            else if (key == "min-ins") {
+                minInstructions = stoi(value);
+            }
+            else if (key == "max-ins") {
+                maxInstructions = stoi(value);
+            }
+            else if (key == "delays-per-exec") {
+                delaysPerExec = stoi(value);
+            }
+        }
+    }
+
+    configFile.close();
 }
 
 void initialize() {
     if (!initialized) {
-        cout << "'initialize' command recognized. Initializing processes and starting scheduler." << endl;
+        cout << "'initialize' command recognized. Initializing processes and starting scheduler." << endl << endl;
+        
+        readConfig("config.txt");
 
-        initialize10Processes();
-
-        cpuManager = new CPUManager(4); 
-        scheduler = new FCFSScheduler(cpuManager);
-
-        for (size_t i = 0; i < 10; i++) {
-            scheduler->addProcess(&sm.processes[i]);
+        if (schedulerType == "fcfs") {
+			// Initialize CPUManager and FCFSScheduler
         }
-
-        // Start the scheduler in a new thread
-        schedulerThread = thread(&FCFSScheduler::start, scheduler);
+        else if (schedulerType == "rr") {
+			// Initialize CPUManager and RoundRobinScheduler
+        }
+        else {
+            cerr << "Error: Unknown scheduler type specified in config file." << endl;
+            return;
+        }
 
         initialized = true;  
     }
