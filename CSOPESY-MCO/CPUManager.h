@@ -6,13 +6,14 @@
 #include "timeStamp.h"
 #include <fstream>
 #include <semaphore>
+#include <memory>
 
 using namespace std;
 
 class CPUWorker {
 private:
     int cpu_Id;
-    process* currentProcess;
+    shared_ptr<process> currentProcess;
     atomic<bool> available;
     thread workerThread;
     int quantumCycles;
@@ -21,7 +22,6 @@ private:
 
     void run() {
         while (true) {
-            // Check if a process is assigned to the CPU
             if (!available && currentProcess != nullptr) {
                 int instructionsExecuted = 0;
 
@@ -71,7 +71,7 @@ public:
         }
     }
 
-    void assignScreen(process* proc) {
+    void assignScreen(shared_ptr<process> proc) {
         currentProcess = proc;
         available = false;
     }
@@ -89,15 +89,13 @@ private:
     counting_semaphore<> clockSemaphore;
 
 public:
-    // Fix: Ensure correct argument ordering for CPUWorker initialization
     CPUManager(int numCpus, int quantumCycles, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, clockSemaphore, quantumCycles, schedulerType));
         }
     }
 
-    void startProcess(process* proc) {
-        // Acquire the semaphore before assigning a process
+    void startProcess(shared_ptr<process> proc) {
         clockSemaphore.acquire();  // This will block until a permit is available
 
         while (true) {
@@ -108,7 +106,6 @@ public:
                     return;
                 }
             }
-            // If no workers are available, wait briefly and retry
             this_thread::sleep_for(chrono::milliseconds(50));
         }
     }

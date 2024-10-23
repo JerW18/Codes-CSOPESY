@@ -10,22 +10,30 @@ using namespace std;
 
 class RRScheduler {
 private:
-    queue<process*> processes;
+    deque<shared_ptr<process>> processes;
     CPUManager* cpuManager;
-
+    mutex mtx;
 public:
     RRScheduler(CPUManager* cpuManager) {
         this->cpuManager = cpuManager;
     }
 
-    void addProcess(process* proc) {
-        processes.push(proc);
+    void addProcess(shared_ptr<process> process) {
+        lock_guard<mutex> lock(mtx);
+        processes.push_back(process);
+        cout << "RR Scheduler: Added process " << process->getProcessName() << " to queue" << endl;
+        cout << processes.size() << endl;
+
+        for (auto p : processes) {
+            cout << p->getProcessName() << endl;
+        }
     }
 
     void start() {
+        shared_ptr<process> currentProcess = nullptr;
         while (!processes.empty()) {
-            process* currentProcess = processes.front();
-            processes.pop();
+            currentProcess = processes.front();
+            processes.pop_front();
 
             // Assign the process to a CPU worker for the quantum time
             cpuManager->startProcess(currentProcess);
@@ -33,7 +41,7 @@ public:
             // Check if the process is still not complete
             if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                 // If not finished, re-queue it
-                processes.push(currentProcess);
+                processes.push_back(currentProcess);
             }
         }
     }
