@@ -21,7 +21,6 @@ public:
     void addProcess(shared_ptr<process> process) {
         lock_guard<mutex> lock(mtx);
         processes.push_back(process);
-        //cout << "FCFS Scheduler: Added process " << process->getProcessName() << " to queue" << endl;
     }
 
     void start() {

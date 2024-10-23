@@ -13,6 +13,7 @@
 #include "FCFSScheduler.h"
 #include "RRScheduler.h"
 
+typedef unsigned long long ull;
 using namespace std;
 
 screenManager sm = screenManager();
@@ -32,11 +33,11 @@ void initialize10Processes() {
 // Variables to hold config values
 int numCPU = 1;
 string schedulerType = "fcfs";
-int quantumCycles = 0;
-int batchProcessFreq = 0;
-int minInstructions = 0;
-int maxInstructions = 0;
-int delaysPerExec = 0;
+ull quantumCycles = 0;
+ull batchProcessFreq = 0;
+ull minInstructions = 0;
+ull maxInstructions = 0;
+ull delaysPerExec = 0;
 bool makeProcess = false;
 
 // Helper function to trim quotes and whitespace from a string
@@ -130,7 +131,7 @@ void initialize() {
     }
 }
 
-int randomInsLength() {
+ull randomInsLength() {
     return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
 }
 
@@ -148,8 +149,8 @@ void schedStart() {
 }
 
 void schedStartThread() {
-    int i = sm.getProcessCount() + 1;
-    int numIns = 0;
+    ull i = sm.getProcessCount() + 1;
+    ull numIns = 0;
     while (makeProcess) {
 		numIns = randomInsLength();
         string processName = "process_" + std::to_string(i);
@@ -183,6 +184,47 @@ void schedStop() {
 		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
 	}
 }
+
+void report() {
+    //export screen -ls to a file
+
+    ofstream reportFile("report.txt");
+    if (!reportFile.is_open()) {
+        cerr << "Error: Could not open report file." << endl;
+        return;
+    }
+
+    reportFile << "----------------------------------" << endl;
+    reportFile << "Running Processes:" << endl;
+
+    for (auto screen : sm.processes) {
+        if (!screen->isFinished()) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Core: "
+                << screen->getCoreAssigned() << " "
+                << screen->getInstructionIndex() << " / "
+                << screen->getTotalInstructions() << endl;
+        }
+    }
+
+    reportFile << endl;
+    reportFile << "Finished Processes:" << endl;
+
+    for (auto screen : sm.processes) {
+        if (screen->isFinished()) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Core: "
+                << screen->getCoreAssigned() << " Finished "
+                << screen->getTotalInstructions() << " / "
+                << screen->getTotalInstructions() << endl;
+        }
+    }
+
+    reportFile << "----------------------------------" << endl;
+    reportFile.close();
+    cout << "Report generated." << endl;
+}
+
 
 
 
@@ -265,6 +307,7 @@ map<string, void (*)()> commands = {
     {"ini", initialize},
 	{"sst", schedStart},
 	{"ssp", schedStop},
+    {"report-util", report},
 	{"scheduler-start", schedStart},
     {"scheduler-stop", schedStop},
     {"initialize", initialize},

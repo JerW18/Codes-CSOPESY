@@ -180,7 +180,7 @@ public:
             string input;
             getline(cin, input);
             this->currentProcess->addInstructionToHistory(0, input);
-            this->currentProcess->incrementInstructionIndex();
+            //this->currentProcess->incrementInstructionIndex();
             if(input == "exit") {
                 cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
                 inScreen = false;
@@ -195,10 +195,26 @@ public:
     
                 return;
             }
+            else if (input == "report-util") {
+
+            }
+            else if (input == "process-smi") {
+				cout << "Process: " << this->currentProcess->getProcessName() << endl;  
+				cout << "ID: " << this->currentProcess->getId() << endl;
+
+				if (this->currentProcess->getInstructionIndex() == this->currentProcess->getTotalInstructions()) {
+					cout << "Finished!" << endl;
+				}
+				else {
+                    cout << "Current Instruction Line: " << this->currentProcess->getInstructionIndex() << endl;
+                    cout << "Total Instruction Lines: " << this->currentProcess->getTotalInstructions() << endl;
+				}
+                cout << "\n";
+            }
             else
                 {
                     cout << "Invalid screen command \"" << input << "\"." << endl;
-                    this->currentProcess->incrementInstructionIndex();
+                    //this->currentProcess->incrementInstructionIndex();
                     this->currentProcess->addInstructionToHistory(1, input);
                 }
     }

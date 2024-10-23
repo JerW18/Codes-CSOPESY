@@ -96,14 +96,13 @@ public:
     }
 
     void startProcess(shared_ptr<process> proc) {
-        clockSemaphore.acquire();  // This will block until a permit is available
+        clockSemaphore.acquire();
 
         while (true) {
             for (int i = 0; i < numCpus; i++) {
                 if (cpuWorkers[i]->isAvailable()) {
-					//cout << "CPU Manager: Assigning process " << proc->getProcessName() << " to CPU " << i << endl;
-                    proc->assignCore(i);  // Assign the CPU ID to the process
-                    cpuWorkers[i]->assignScreen(proc);  // Assign the process to the CPUWorker
+                    proc->assignCore(i);
+                    cpuWorkers[i]->assignScreen(proc); 
                     return;
                 }
             }
