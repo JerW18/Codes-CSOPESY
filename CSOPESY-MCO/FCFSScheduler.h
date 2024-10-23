@@ -21,24 +21,18 @@ public:
     void addProcess(shared_ptr<process> process) {
         lock_guard<mutex> lock(mtx);
         processes.push_back(process);
-        cout << "FCFS Scheduler: Added process " << process->getProcessName() << " to queue" << endl;
-        cout << processes.size() << endl;
-
-        for (auto p : processes) {
-            cout << p->getProcessName() << endl;
-        }
+        //cout << "FCFS Scheduler: Added process " << process->getProcessName() << " to queue" << endl;
     }
 
     void start() {
         shared_ptr<process> currentProcess = nullptr;
         while (true) {
             if (processes.empty()) {
-                this_thread::sleep_for(chrono::milliseconds(10));
+                this_thread::sleep_for(chrono::milliseconds(100));
                 continue;
             }
             currentProcess = processes.front();
             processes.pop_front();
-            cout << "FCFS Scheduler: Starting process " << currentProcess->getProcessName() << endl;
             cpuManager->startProcess(currentProcess);
         }
     }

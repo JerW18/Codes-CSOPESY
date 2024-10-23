@@ -101,6 +101,7 @@ public:
         while (true) {
             for (int i = 0; i < numCpus; i++) {
                 if (cpuWorkers[i]->isAvailable()) {
+					//cout << "CPU Manager: Assigning process " << proc->getProcessName() << " to CPU " << i << endl;
                     proc->assignCore(i);  // Assign the CPU ID to the process
                     cpuWorkers[i]->assignScreen(proc);  // Assign the process to the CPUWorker
                     return;

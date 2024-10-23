@@ -24,6 +24,8 @@ private:
     int coreAssigned = -1;
 
 public:
+
+
     string getProcessName() {
         return this->processName;
     }
@@ -86,6 +88,18 @@ public:
         this->totalInstructions = totalInstructions;
         this->dateOfBirth = timeStamp();
     }
+
+    process(process &other) {
+		this->processName = other.processName;
+		this->id = other.id;
+		this->instructionIndex = other.instructionIndex;
+		this->totalInstructions = other.totalInstructions;
+		this->dateOfBirth = other.dateOfBirth;
+		this->inputHistory = other.inputHistory;
+		this->coreAssigned = other.coreAssigned;
+
+    }
+  
 };
 
 class screenManager {
@@ -101,10 +115,22 @@ public:
         }
     }
     void addProcess(string processName, ull totalInstructions) {
-        processes.push_back(make_shared<process>(processName, maxId++, totalInstructions));
+        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
         currentProcess = processes.back();
-        inScreen = true;
+		//cout << getProcessCount() << endl;
+        //inScreen = true;
+        //this->maxId++;
+        // TODO: Uncomment after testing
+        //startProcess();
     }
+
+	void addProcessManually(string processName, ull totalInstructions) {
+		processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
+		currentProcess = processes.back();
+		inScreen = true;
+		//this->maxId++;
+		showProcess();
+	}
 
     int getProcessCount() {
         return processes.size();
@@ -134,14 +160,14 @@ public:
                 this->currentProcess = x;
                 inScreen = true;
 
-                startProcess();
+                showProcess();
                 return;
             }
         }
         cout << "Screen " << processName << " not found." << endl;
     }
 
-    void startProcess() {
+    void showProcess() {
         if (this->currentProcess == nullptr) {return;}
         system("cls");
         cout << "Process: " << this->currentProcess->getProcessName() << endl;

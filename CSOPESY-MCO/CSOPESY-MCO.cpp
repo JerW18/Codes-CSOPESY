@@ -109,10 +109,6 @@ void initialize() {
             //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
             //FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
 			fcfsScheduler = new FCFSScheduler(cpuManager);
-            /*initialize10Processes();
-			for (size_t i = 0; i < 10; i++) {
-				fcfsScheduler->addProcess(&sm.processes[i]);
-			}*/
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
         }
         else if (schedulerType == "rr") {
@@ -120,12 +116,6 @@ void initialize() {
             //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
             //RRScheduler* rrScheduler = new RRScheduler(cpuManager);  
 			rrScheduler = new RRScheduler(cpuManager);
-
-            /*initialize10Processes();
-            for (size_t i = 0; i < 10; i++) {
-                rrScheduler->addProcess(&sm.processes[i]);
-            }*/
-
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
         }
         else {
@@ -140,37 +130,54 @@ void initialize() {
     }
 }
 
+int randomInsLength() {
+    return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
+}
+
+thread processThread;
+void schedStartThread();
 void schedStart() {
-if (initialized && !makeProcess) {
-    cout << "Starting scheduler." << endl;
-    makeProcess = true;
+    if (initialized && !makeProcess) {
+        cout << "Starting scheduler." << endl;
+        makeProcess = true;
+        processThread = thread(schedStartThread);
+    }
+    else {
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+    }
+}
+
+void schedStartThread() {
     int i = sm.getProcessCount() + 1;
     int numIns = 0;
     while (makeProcess) {
-        numIns = rand() % (maxInstructions - minInstructions + 1) + minInstructions;
+		numIns = randomInsLength();
         string processName = "process_" + std::to_string(i);
         sm.addProcess(processName, numIns);
-        cout << "Process " << sm.processes.back()->getProcessName() << " added with " << numIns << " instructions." << endl;
-        // Add it to the queue
-        if (schedulerType == "fcfs")
-            fcfsScheduler->addProcess(make_shared<process>(sm.processes.back()));
-        else if (schedulerType == "rr")
-            //rrScheduler->addProcess(make_shared<process>(sm.processes.back()));
-        i = sm.getProcessCount() + 1;
-        this_thread::sleep_for(chrono::milliseconds(delaysPerExec)); // Might need to make a separate thread for this
-        if (i > 10) {
-            makeProcess = false;
+        if (schedulerType == "fcfs") {
+            fcfsScheduler->addProcess(sm.processes.back());
         }
+        else if (schedulerType == "rr") {
+            rrScheduler->addProcess(sm.processes.back());
+        }
+        i = sm.getProcessCount() + 1;
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq));
     }
-}
-else {
-    cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
-}
 }
 
 void schedStop() {
 	if (initialized) {
-		makeProcess = false;
+        if(makeProcess) {
+			cout << "Stopping scheduler." << endl;
+			makeProcess = false;
+			if (processThread.joinable()) {
+                processThread.join();
+				cout << "Scheduler stopped." << endl;
+			}
+		}
+		else {
+			cout << "Scheduler is already stopped." << endl;
+		}
 	}
 	else {
 		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
@@ -200,7 +207,7 @@ void screens(const string& option, const string& name) {
             }
         }
         cout << "Starting new terminal session: " << name << endl;
-        sm.addProcess(name, 999999);
+        sm.addProcessManually(name, randomInsLength()); //ig it should also add it to the queue?
         inScreen = true;
     }
     else if (option == "-ls") {
