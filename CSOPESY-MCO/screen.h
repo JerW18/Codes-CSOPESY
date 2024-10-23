@@ -56,7 +56,9 @@ public:
 	}
 
 	void printIntstructionIndex() {
-		cout << "Instruction: " << this->instructionIndex << "/" << this->totalInstructions << endl;
+		//cout << "Instruction: " << this->instructionIndex << "/" << this->totalInstructions << endl;
+		cout << "\nCurrent Instruction Line: " << this->instructionIndex << endl;
+		cout << "Total Instruction Lines: " << this->totalInstructions << endl;
 	}                
 
 	void printInputHistory() {
@@ -102,15 +104,20 @@ public:
 		processes.emplace_back(processName, maxId++, totalInstructions);
 		currentProcess = &processes.back();
 		inScreen = true;
-		this->maxId++;
+		//this->maxId++;
 		// TODO: Uncomment after testing
-		// startProcess();
+		//startProcess();
+	}
+
+	int getProcessCount() {
+		return processes.size();
 	}
 
 	void removeProcess(string processName) {
 		for (ull i = 0; i < processes.size(); i++) {
 			if (this->processes[i].getProcessName() == processName) {
 				this->processes.erase(this->processes.begin() + i);
+				cout << "Process " << processName << " removed." << endl;
 				return;
 			}
 		}
@@ -141,9 +148,11 @@ public:
 		if (this->currentProcess == nullptr) {return;}
 		system("cls");
 		cout << "Process: " << this->currentProcess->getProcessName() << endl;
+		cout << "ID: " << this->currentProcess->getId() << endl;
 		cout << "Date of birth: " << this->currentProcess->getDateOfBirth() << endl;
-		cout << "Instruction: " << this->currentProcess->getInstructionIndex() << "/" << this->currentProcess->getTotalInstructions() << endl;
-		this->currentProcess->printInputHistory();
+		//cout << "Instruction: " << this->currentProcess->getInstructionIndex() << "/" << this->currentProcess->getTotalInstructions() << endl;
+		this->currentProcess->printIntstructionIndex();
+		//this->currentProcess->printInputHistory();
 
 		while (true){
 			cout << "Enter screen command: ";

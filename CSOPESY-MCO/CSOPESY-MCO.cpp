@@ -20,8 +20,6 @@ global g;
 
 bool inScreen = false;
 bool initialized = false; 
-CPUManager* cpuManager = nullptr;  
-FCFSScheduler* scheduler = nullptr;
 thread schedulerThread;
 
 void initialize10Processes() {
@@ -39,6 +37,7 @@ int batchProcessFreq = 0;
 int minInstructions = 0;
 int maxInstructions = 0;
 int delaysPerExec = 0;
+bool makeProcess = false;
 
 // Helper function to trim quotes and whitespace from a string
 string trim(const string& str) {
@@ -93,6 +92,9 @@ void readConfig(const string& filename) {
 
     configFile.close();
 }
+CPUManager* cpuManager;
+RRScheduler* rrScheduler;
+FCFSScheduler* fcfsScheduler;
 
 void initialize() {
     if (!initialized) {
@@ -100,26 +102,29 @@ void initialize() {
         
         readConfig("config.txt");
 
+        cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+
         if (schedulerType == "fcfs") {
 			// Initialize CPUManager and FCFSScheduler
-            CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
-            FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
-            initialize10Processes();
+            //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+            //FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
+			fcfsScheduler = new FCFSScheduler(cpuManager);
+            /*initialize10Processes();
 			for (size_t i = 0; i < 10; i++) {
 				fcfsScheduler->addProcess(&sm.processes[i]);
-			}
+			}*/
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
         }
         else if (schedulerType == "rr") {
 			// Initialize CPUManager and RoundRobinScheduler
-            CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
-            RRScheduler* rrScheduler = new RRScheduler(cpuManager);  
+            //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+            //RRScheduler* rrScheduler = new RRScheduler(cpuManager);  
+			rrScheduler = new RRScheduler(cpuManager);
 
-            initialize10Processes();
-
+            /*initialize10Processes();
             for (size_t i = 0; i < 10; i++) {
                 rrScheduler->addProcess(&sm.processes[i]);
-            }
+            }*/
 
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
         }
@@ -134,6 +139,46 @@ void initialize() {
         cout << "'initialize' command has already been executed." << endl;
     }
 }
+
+void schedStart() {
+	if (initialized && !makeProcess) {
+		cout << "Starting scheduler." << endl;
+		makeProcess = true;
+		int i = sm.getProcessCount()+1;
+        int numIns = 0;
+        while (makeProcess) {
+			numIns = rand() % (maxInstructions - minInstructions + 1) + minInstructions;
+            string processName = "process_" + std::to_string(i);
+            sm.addProcess(processName, numIns);
+            cout << "Process " << sm.processes.back().getProcessName() << " added with " << numIns << " instructions." << endl;
+			//add it to the queue
+			if (schedulerType == "fcfs")
+				fcfsScheduler->addProcess(&sm.processes.back());
+			else if(schedulerType == "rr")
+				rrScheduler->addProcess(&sm.processes.back());
+			i = sm.getProcessCount()+1;
+			this_thread::sleep_for(chrono::milliseconds(delaysPerExec)); //might need to make a separate thread for this
+			if (i > 10) {
+				makeProcess = false;
+			}
+            
+        }
+	}
+	else {
+		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+	}
+}
+
+void schedStop() {
+	if (initialized) {
+		makeProcess = false;
+	}
+	else {
+		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+	}
+}
+
+
 
 void screens(const string& option, const string& name) {
     if (option == "-r") {
@@ -211,6 +256,11 @@ void exitProgram() {
 
 
 map<string, void (*)()> commands = {
+    {"ini", initialize},
+	{"sst", schedStart},
+	{"ssp", schedStop},
+	{"scheduler-start", schedStart},
+    {"scheduler-stop", schedStop},
     {"initialize", initialize},
     {"clear", clearScreen},
     {"exit", exitProgram}
