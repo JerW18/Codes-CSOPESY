@@ -104,6 +104,10 @@ void initialize() {
 			// Initialize CPUManager and FCFSScheduler
             CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
             FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
+            initialize10Processes();
+			for (size_t i = 0; i < 10; i++) {
+				fcfsScheduler->addProcess(&sm.processes[i]);
+			}
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
         }
         else if (schedulerType == "rr") {

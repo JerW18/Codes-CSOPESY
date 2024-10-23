@@ -2,25 +2,26 @@
 #include "screen.h"
 #include <thread>
 #include <iostream>
-#include <atomic> 
+#include <atomic>
 #include "timeStamp.h"
-
 #include <fstream>
+#include <semaphore>
 
 using namespace std;
-
 
 class CPUWorker {
 private:
     int cpu_Id;
     process* currentProcess;
-    atomic<bool> available; 
+    atomic<bool> available;
     thread workerThread;
-	int quantumCycles;
+    int quantumCycles;
     string schedulerType;
+    counting_semaphore<>& clockSemaphore;
 
     void run() {
         while (true) {
+            // Check if a process is assigned to the CPU
             if (!available && currentProcess != nullptr) {
                 int instructionsExecuted = 0;
 
@@ -29,29 +30,39 @@ private:
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
-                        this_thread::sleep_for(chrono::milliseconds(100));
+                        this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
                     }
 
-                    available = true;
-                    currentProcess = nullptr;
+                    if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+                        available = true;
+                        currentProcess = nullptr;
+                        clockSemaphore.release();  // Release semaphore when task is finished
+                    }
+                    else {
+                        available = true;  // Mark worker available after quantum slice (RR logic)
+                        clockSemaphore.release();  // Release semaphore even if quantum finished
+                    }
+
                 }
                 else if (schedulerType == "fcfs") {
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                         currentProcess->incrementInstructionIndex();
-                        this_thread::sleep_for(chrono::milliseconds(100)); 
+                        this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
                     }
-                    available = true; 
-                    currentProcess = nullptr; 
+                    available = true;  // Mark the CPU as available
+                    currentProcess = nullptr;  // Clear the process
+                    clockSemaphore.release();  // Release semaphore after task completion
                 }
             }
 
-            this_thread::sleep_for(chrono::milliseconds(10)); 
+            this_thread::sleep_for(chrono::milliseconds(10));  // Sleep briefly to avoid busy-waiting
         }
     }
 
 public:
-    CPUWorker(int id, int quantumCycles, string schedulerType) : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), schedulerType(schedulerType) {
-        workerThread = thread(&CPUWorker::run, this);  
+    CPUWorker(int id, counting_semaphore<>& semaphore, int quantumCycles, string schedulerType)
+        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), schedulerType(schedulerType), clockSemaphore(semaphore) {
+        workerThread = thread(&CPUWorker::run, this);
     }
 
     ~CPUWorker() {
@@ -75,20 +86,25 @@ class CPUManager {
 private:
     vector<CPUWorker*> cpuWorkers;
     int numCpus;
+    counting_semaphore<> clockSemaphore;
 
 public:
-    CPUManager(int numCpus, int quantumCycles, string schedulerType) : numCpus(numCpus) {
+    // Fix: Ensure correct argument ordering for CPUWorker initialization
+    CPUManager(int numCpus, int quantumCycles, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, schedulerType));
+            cpuWorkers.push_back(new CPUWorker(i, clockSemaphore, quantumCycles, schedulerType));
         }
     }
 
     void startProcess(process* proc) {
+        // Acquire the semaphore before assigning a process
+        clockSemaphore.acquire();  // This will block until a permit is available
+
         while (true) {
             for (int i = 0; i < numCpus; i++) {
                 if (cpuWorkers[i]->isAvailable()) {
-                    proc->assignCore(i);  
-                    cpuWorkers[i]->assignScreen(proc); 
+                    proc->assignCore(i);  // Assign the CPU ID to the process
+                    cpuWorkers[i]->assignScreen(proc);  // Assign the process to the CPUWorker
                     return;
                 }
             }
@@ -103,4 +119,3 @@ public:
         }
     }
 };
-
