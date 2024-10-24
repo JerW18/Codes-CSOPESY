@@ -9,9 +9,11 @@
 #include <memory>
 #include "timeStamp.h"
 #include "global.h"
+#include <mutex>
 typedef unsigned long long ull;
 
 using namespace std;
+
 
 class process {
 private:
@@ -22,6 +24,8 @@ private:
     timeStamp dateOfBirth;
     vector<pair<int, string>> inputHistory;
     int coreAssigned = -1;
+
+ 
 
 public:
 
@@ -106,9 +110,14 @@ class screenManager {
 private:
     ull maxId = 0;
     shared_ptr<process> currentProcess = nullptr;
+    // pointer for mutex
+    mutex* m;
 public:
     vector<shared_ptr<process>> processes;
     bool inScreen = false;
+
+    screenManager(mutex* mutexPtr) : m(mutexPtr) {}
+
     void printProcess() {
         for (auto& x : this->processes) {
             cout << "Process: " << to_string(x->getId()) << endl;
@@ -117,11 +126,6 @@ public:
     void addProcess(string processName, ull totalInstructions) {
         processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
         currentProcess = processes.back();
-		//cout << getProcessCount() << endl;
-        //inScreen = true;
-        //this->maxId++;
-        // TODO: Uncomment after testing
-        //startProcess();
     }
 
 	void addProcessManually(string processName, ull totalInstructions) {

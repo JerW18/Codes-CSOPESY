@@ -12,12 +12,18 @@
 #include "CPUManager.h"
 #include "FCFSScheduler.h"
 #include "RRScheduler.h"
+#include <mutex>
 
 typedef unsigned long long ull;
 using namespace std;
 
-screenManager sm = screenManager();
+// declare a global mutex
+mutex mtx;
+
+
+screenManager sm = screenManager(&mtx);
 global g;
+
 
 bool inScreen = false;
 bool initialized = false; 
@@ -147,9 +153,11 @@ void schedStart() {
 void schedStartThread() {
     ull i = sm.getProcessCount() + 1;
     ull numIns = 0;
+
     while (makeProcess) {
+        std::unique_lock<std::mutex> lock(mtx);
 		numIns = randomInsLength();
-        string processName = "process_" + std::to_string(i);
+        string processName = "process_" + to_string(i);
         sm.addProcess(processName, numIns);
         if (schedulerType == "fcfs") {
             fcfsScheduler->addProcess(sm.processes.back());
@@ -158,7 +166,10 @@ void schedStartThread() {
             rrScheduler->addProcess(sm.processes.back());
         }
         i = sm.getProcessCount() + 1;
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+        lock.unlock();
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 500));
+
+		
     }
 }
 
@@ -183,7 +194,7 @@ void schedStop() {
 
 void report() {
     //export screen -ls to a file
-
+    std::unique_lock<std::mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
         cerr << "Error: Could not open report file." << endl;
@@ -218,6 +229,7 @@ void report() {
 
     reportFile << "----------------------------------" << endl;
     reportFile.close();
+	lock.unlock();
     cout << "Report generated." << endl;
 }
 
@@ -226,6 +238,7 @@ void report() {
 
 void screens(const string& option, const string& name) {
     if (option == "-r") {
+        std::unique_lock<std::mutex> lock(mtx);
         for (auto screen : sm.processes) {
             if (screen->getProcessName() == name) {
                 int id = screen->getId();
@@ -236,8 +249,10 @@ void screens(const string& option, const string& name) {
             }
         }
         cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen." << endl;
+		lock.unlock();
     }
     else if (option == "-s") {
+        std::unique_lock<std::mutex> lock(mtx);
         for (auto screen : sm.processes) {
             if (screen->getProcessName() == name) {
                 cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it." << endl;
@@ -264,10 +279,11 @@ void screens(const string& option, const string& name) {
         }
 
         inScreen = true;
+		lock.unlock();
 
-        inScreen = true;
     }
     else if (option == "-ls") {
+        std::unique_lock<std::mutex> lock(mtx);
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
 
@@ -295,6 +311,7 @@ void screens(const string& option, const string& name) {
         }
 
         cout << "----------------------------------" << endl;
+		lock.unlock();
     }
     else {
         cout << "Invalid screen option: " << option << endl;
@@ -314,6 +331,10 @@ void exitProgram() {
     if (schedulerThread.joinable()) {
         schedulerThread.join();  
     }
+    // Cleanup the CPU manager and schedulers
+    delete cpuManager;
+    delete rrScheduler;
+    delete fcfsScheduler;
     exit(0);
 }
 
