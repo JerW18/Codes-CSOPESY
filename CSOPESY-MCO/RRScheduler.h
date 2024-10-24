@@ -30,12 +30,20 @@ public:
                 this_thread::sleep_for(chrono::milliseconds(100));
                 continue;
             }
-            currentProcess = processes.front();
-            processes.pop_front();
+            {
+                lock_guard<mutex> lock(mtx);
+                currentProcess = processes.front();
+                processes.pop_front();
+            }
             cpuManager->startProcess(currentProcess);
             if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                lock_guard<mutex> lock(mtx);
                 processes.push_back(currentProcess);
             }
         }
+    }
+
+    void getSize() {
+        cout << processes.size() << endl;
     }
 };

@@ -139,6 +139,7 @@ ull randomInsLength() {
 
 thread processThread;
 void schedStartThread();
+void schedStop();
 void schedStart() {
     if (initialized && !makeProcess) {
         cout << "Starting scheduler." << endl;
@@ -157,7 +158,7 @@ void schedStartThread() {
     while (makeProcess) {
         std::unique_lock<std::mutex> lock(mtx);
 		numIns = randomInsLength();
-        string processName = "process_" + to_string(i);
+        string processName = "p_" + to_string(i);
         sm.addProcess(processName, numIns);
         if (schedulerType == "fcfs") {
             fcfsScheduler->addProcess(sm.processes.back());
@@ -167,7 +168,7 @@ void schedStartThread() {
         }
         i = sm.getProcessCount() + 1;
         lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 500));
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
 
 		
     }
@@ -287,7 +288,7 @@ void screens(const string& option, const string& name) {
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
 
-        for (auto screen : sm.processes) {
+        for (auto &screen : sm.processes) {
             if (!screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
@@ -300,7 +301,7 @@ void screens(const string& option, const string& name) {
         cout << endl;
         cout << "Finished Processes:" << endl;
 
-        for (auto screen : sm.processes) {
+        for (auto &screen : sm.processes) {
             if (screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
@@ -332,9 +333,9 @@ void exitProgram() {
         schedulerThread.join();  
     }
     // Cleanup the CPU manager and schedulers
-    delete cpuManager;
-    delete rrScheduler;
-    delete fcfsScheduler;
+    //delete cpuManager;
+    //delete rrScheduler;
+    //delete fcfsScheduler;
     exit(0);
 }
 

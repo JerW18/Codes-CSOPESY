@@ -35,4 +35,7 @@ public:
             cpuManager->startProcess(currentProcess);
         }
     }
+    void getSize() {
+        cout << processes.size() << endl;
+    }
 };
