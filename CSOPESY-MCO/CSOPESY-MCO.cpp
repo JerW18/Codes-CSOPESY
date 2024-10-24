@@ -103,19 +103,15 @@ void initialize() {
         
         readConfig("config.txt");
 
-        cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
 
         if (schedulerType == "fcfs") {
 			// Initialize CPUManager and FCFSScheduler
-            //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
-            //FCFSScheduler* fcfsScheduler = new FCFSScheduler(cpuManager);
 			fcfsScheduler = new FCFSScheduler(cpuManager);
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
         }
         else if (schedulerType == "rr") {
-			// Initialize CPUManager and RoundRobinScheduler
-            //CPUManager* cpuManager = new CPUManager(numCPU, quantumCycles, schedulerType);
-            //RRScheduler* rrScheduler = new RRScheduler(cpuManager);  
+			// Initialize CPUManager and RoundRobinScheduler  
 			rrScheduler = new RRScheduler(cpuManager);
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
         }
@@ -162,7 +158,7 @@ void schedStartThread() {
             rrScheduler->addProcess(sm.processes.back());
         }
         i = sm.getProcessCount() + 1;
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq));
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
     }
 }
 
@@ -249,7 +245,26 @@ void screens(const string& option, const string& name) {
             }
         }
         cout << "Starting new terminal session: " << name << endl;
-        sm.addProcessManually(name, randomInsLength()); //ig it should also add it to the queue?
+
+        // Create new process manually in screenManager and get instruction length
+        ull instructions = randomInsLength();
+        sm.addProcessManually(name, instructions);  // Create a new process in screenManager
+
+        shared_ptr<process> newProcess = sm.processes.back();
+
+        // Add the process to the scheduler (either FCFS or RR)
+        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
+            fcfsScheduler->addProcess(newProcess);
+        }
+        else if (schedulerType == "rr" && rrScheduler != nullptr) {
+            rrScheduler->addProcess(newProcess);
+        }
+        else {
+            cout << "Error: Scheduler not initialized or unknown scheduler type." << endl;
+        }
+
+        inScreen = true;
+
         inScreen = true;
     }
     else if (option == "-ls") {

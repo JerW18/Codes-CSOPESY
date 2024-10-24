@@ -17,6 +17,7 @@ private:
     atomic<bool> available;
     thread workerThread;
     int quantumCycles;
+    int delaysPerExec;
     string schedulerType;
     counting_semaphore<>& clockSemaphore;
 
@@ -28,6 +29,10 @@ private:
                 if (schedulerType == "rr") {
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        // Busy-wait for `delaysPerExec` cycles before executing the instruction
+                        for (int i = 0; i < delaysPerExec; i++) {
+                            this_thread::sleep_for(chrono::milliseconds(100));  // Simulate one CPU cycle of delay
+                        }
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
                         this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
@@ -46,6 +51,10 @@ private:
                 }
                 else if (schedulerType == "fcfs") {
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        // Busy-wait for `delaysPerExec` cycles before executing the instruction
+                        for (int i = 0; i < delaysPerExec; i++) {
+                            this_thread::sleep_for(chrono::milliseconds(100));  // Simulate one CPU cycle of delay
+                        }
                         currentProcess->incrementInstructionIndex();
                         this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
                     }
@@ -55,13 +64,13 @@ private:
                 }
             }
 
-            this_thread::sleep_for(chrono::milliseconds(10));  // Sleep briefly to avoid busy-waiting
+            this_thread::sleep_for(chrono::milliseconds(100));  // Sleep briefly to avoid busy-waiting
         }
     }
 
 public:
-    CPUWorker(int id, counting_semaphore<>& semaphore, int quantumCycles, string schedulerType)
-        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), schedulerType(schedulerType), clockSemaphore(semaphore) {
+    CPUWorker(int id, counting_semaphore<>& semaphore, int quantumCycles, int delaysPerExec, string schedulerType)
+        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType), clockSemaphore(semaphore) {
         workerThread = thread(&CPUWorker::run, this);
     }
 
@@ -89,11 +98,12 @@ private:
     counting_semaphore<> clockSemaphore;
 
 public:
-    CPUManager(int numCpus, int quantumCycles, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
+    CPUManager(int numCpus, int quantumCycles, int delaysPerExec, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, clockSemaphore, quantumCycles, schedulerType));
+            cpuWorkers.push_back(new CPUWorker(i, clockSemaphore, quantumCycles, delaysPerExec, schedulerType));
         }
     }
+
 
     void startProcess(shared_ptr<process> proc) {
         clockSemaphore.acquire();
