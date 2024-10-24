@@ -199,18 +199,15 @@ public:
     
                 return;
             }
-            else if (input == "report-util") {
-
-            }
             else if (input == "process-smi") {
-				cout << "Process: " << this->currentProcess->getProcessName() << endl;  
+				cout << "\nProcess: " << this->currentProcess->getProcessName() << endl;  
 				cout << "ID: " << this->currentProcess->getId() << endl;
 
 				if (this->currentProcess->getInstructionIndex() == this->currentProcess->getTotalInstructions()) {
-					cout << "Finished!" << endl;
+					cout << "\nFinished!" << endl;
 				}
 				else {
-                    cout << "Current Instruction Line: " << this->currentProcess->getInstructionIndex() << endl;
+                    cout << "\nCurrent Instruction Line: " << this->currentProcess->getInstructionIndex() << endl;
                     cout << "Total Instruction Lines: " << this->currentProcess->getTotalInstructions() << endl;
 				}
                 cout << "\n";

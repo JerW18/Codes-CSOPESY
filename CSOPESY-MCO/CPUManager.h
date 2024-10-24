@@ -72,11 +72,13 @@ public:
     CPUWorker(int id, counting_semaphore<>& semaphore, int quantumCycles, int delaysPerExec, string schedulerType)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType), clockSemaphore(semaphore) {
         workerThread = thread(&CPUWorker::run, this);
+		workerThread.detach();
     }
 
     ~CPUWorker() {
         if (workerThread.joinable()) {
             workerThread.join();
+			cout << "CPU Worker " << cpu_Id << " joined." << endl;
         }
     }
 
@@ -122,6 +124,7 @@ public:
 
     ~CPUManager() {
         for (int i = 0; i < numCpus; i++) {
+			//cout << "Deleting CPU Worker " << i << endl;
             delete cpuWorkers[i];
         }
     }

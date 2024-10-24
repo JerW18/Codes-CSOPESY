@@ -115,11 +115,13 @@ void initialize() {
 			// Initialize CPUManager and FCFSScheduler
 			fcfsScheduler = new FCFSScheduler(cpuManager);
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
+			schedulerThread.detach();
         }
         else if (schedulerType == "rr") {
 			// Initialize CPUManager and RoundRobinScheduler  
 			rrScheduler = new RRScheduler(cpuManager);
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
+            schedulerThread.detach();
         }
         else {
             cerr << "Error: Unknown scheduler type specified in config file." << endl;
@@ -152,7 +154,7 @@ void schedStart() {
 }
 
 void schedStartThread() {
-    ull i = sm.getProcessCount() + 1;
+    ull i = sm.getProcessCount();
     ull numIns = 0;
 
     while (makeProcess) {
@@ -168,7 +170,7 @@ void schedStartThread() {
         }
         i = sm.getProcessCount() + 1;
         lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 500));
 
 		
     }
@@ -329,13 +331,16 @@ void clearScreen() {
 }
 
 void exitProgram() {
+	cout << "Exiting program." << endl;
     if (schedulerThread.joinable()) {
         schedulerThread.join();  
+		cout << "Thread Scheduler stopped." << endl;
     }
+    delete cpuManager;
+    delete rrScheduler;
+    delete fcfsScheduler;
     // Cleanup the CPU manager and schedulers
-    //delete cpuManager;
-    //delete rrScheduler;
-    //delete fcfsScheduler;
+    
     exit(0);
 }
 
