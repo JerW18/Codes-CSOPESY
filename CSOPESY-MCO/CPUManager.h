@@ -45,6 +45,7 @@ private:
                     }
                     else {
                         available = true;
+                        currentProcess->assignCore(-1);
                         clockSemaphore.release();
                     }
 
@@ -112,7 +113,7 @@ public:
 
         while (true) {
             for (int i = 0; i < numCpus; i++) {
-                if (cpuWorkers[i]->isAvailable()) {
+                if (cpuWorkers[i]->isAvailable() && proc->getCoreAssigned() == -1) {
                     proc->assignCore(i);
                     cpuWorkers[i]->assignScreen(proc); 
                     return;

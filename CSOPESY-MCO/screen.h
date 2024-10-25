@@ -25,8 +25,6 @@ private:
     vector<pair<int, string>> inputHistory;
     int coreAssigned = -1;
 
- 
-
 public:
 
 

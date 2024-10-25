@@ -140,12 +140,12 @@ void schedStartThread();
 void schedStop();
 void schedStart() {
     if (initialized && !makeProcess) {
-        cout << "Starting scheduler." << endl;
+        cout << "Starting scheduler." << endl << endl;
         makeProcess = true;
         processThread = thread(schedStartThread);
     }
     else {
-        cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl << endl;
     }
 }
 
@@ -186,15 +186,15 @@ void schedStop() {
 			makeProcess = false;
 			if (processThread.joinable()) {
                 processThread.join();
-				cout << "Scheduler stopped." << endl;
+				cout << "Scheduler stopped." << endl << endl;
 			}
 		}
 		else {
-			cout << "Scheduler is already stopped." << endl;
+			cout << "Scheduler is already stopped." << endl << endl;
 		}
 	}
 	else {
-		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl << endl;
 	}
 }
 
@@ -291,11 +291,23 @@ void screens(const string& option, const string& name) {
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
 
-        for (auto &screen : sm.processes) {
-            if (!screen->isFinished()) {
+        for (auto& screen : sm.processes) {
+            if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
-                    << screen->getCoreAssigned() << " "
+                    << screen->getCoreAssigned() << " Running "
+                    << screen->getInstructionIndex() << " / "
+                    << screen->getTotalInstructions() << endl;
+            }
+        }
+
+        cout << endl;
+        cout << "Ready Processes:" << endl;
+
+        for (auto& screen : sm.processes) {
+            if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+                cout << screen->getProcessName() << " ("
+                    << screen->getDateOfBirth() << ") Ready "
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << endl;
             }
@@ -305,10 +317,9 @@ void screens(const string& option, const string& name) {
         cout << "Finished Processes:" << endl;
 
         for (auto &screen : sm.processes) {
-            if (screen->isFinished()) {
+            if (screen->isFinished()) {     
                 cout << screen->getProcessName() << " ("
-                    << screen->getDateOfBirth() << ") Core: "
-                    << screen->getCoreAssigned() << " Finished "
+                    << screen->getDateOfBirth() << ") Finished "
                     << screen->getTotalInstructions() << " / "
                     << screen->getTotalInstructions() << endl;
             }
