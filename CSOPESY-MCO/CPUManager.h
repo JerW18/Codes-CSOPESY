@@ -16,8 +16,8 @@ private:
     shared_ptr<process> currentProcess;
     atomic<bool> available;
     thread workerThread;
-    int quantumCycles;
-    int delaysPerExec;
+    ull quantumCycles;
+    ull delaysPerExec;
     string schedulerType;
     counting_semaphore<>& clockSemaphore;
 
@@ -30,7 +30,7 @@ private:
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                         
-                        for (int i = 0; i < delaysPerExec; i++) {
+                        for (ull i = 0; i < delaysPerExec; i++) {
                             this_thread::sleep_for(chrono::milliseconds(50));
                         }
                         currentProcess->incrementInstructionIndex();
@@ -52,7 +52,7 @@ private:
                 else if (schedulerType == "fcfs") {
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                         
-                        for (int i = 0; i < delaysPerExec; i++) {
+                        for (ull i = 0; i < delaysPerExec; i++) {
                             this_thread::sleep_for(chrono::milliseconds(50));
                         } 
                         currentProcess->incrementInstructionIndex();
@@ -69,7 +69,7 @@ private:
     }
 
 public:
-    CPUWorker(int id, counting_semaphore<>& semaphore, int quantumCycles, int delaysPerExec, string schedulerType)
+    CPUWorker(int id, counting_semaphore<>& semaphore, ull quantumCycles, ull delaysPerExec, string schedulerType)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType), clockSemaphore(semaphore) {
         workerThread = thread(&CPUWorker::run, this);
 		workerThread.detach();
@@ -78,7 +78,7 @@ public:
     ~CPUWorker() {
         if (workerThread.joinable()) {
             workerThread.join();
-			cout << "CPU Worker " << cpu_Id << " joined." << endl;
+			//cout << "CPU Worker " << cpu_Id << " joined." << endl;
         }
     }
 
@@ -100,7 +100,7 @@ private:
     counting_semaphore<> clockSemaphore;
 
 public:
-    CPUManager(int numCpus, int quantumCycles, int delaysPerExec, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType) : numCpus(numCpus), clockSemaphore(numCpus) {
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, clockSemaphore, quantumCycles, delaysPerExec, schedulerType));
         }

@@ -19,45 +19,38 @@ using namespace std;
 
 // declare a global mutex
 mutex mtx;
-
-
 screenManager sm = screenManager(&mtx);
 global g;
-
+thread schedulerThread;
+CPUManager* cpuManager;
+RRScheduler* rrScheduler;
+FCFSScheduler* fcfsScheduler;
+thread processThread;
 
 bool inScreen = false;
 bool initialized = false; 
-thread schedulerThread;
-
-void initialize10Processes() {
-    for (int i = 0; i < 10; i++) {
-        std::string processName = "process_" + std::to_string(i);
-        sm.addProcess(processName, 100);
-    }
-}
-
-// Variables to hold config values
-int numCPU = 1;
-string schedulerType = "fcfs";
-ull quantumCycles = 0;
-ull batchProcessFreq = 0;
-ull minInstructions = 0;
-ull maxInstructions = 0;
-ull delaysPerExec = 0;
 bool makeProcess = false;
 
-// Helper function to trim quotes and whitespace from a string
+
+// config vars
+int numCPU = 4;
+string schedulerType = "rr";
+ull quantumCycles = 5;
+ull batchProcessFreq = 1;
+ull minInstructions = 1000;
+ull maxInstructions = 2000;
+ull delaysPerExec = 0;
+
 string trim(const string& str) {
     size_t start = str.find_first_not_of(" \t\"");
     size_t end = str.find_last_not_of(" \t\"");
     return (start == string::npos || end == string::npos) ? "" : str.substr(start, end - start + 1);
 }
 
-// Function to read configuration values
 void readConfig(const string& filename) {
     ifstream configFile(filename);
     if (!configFile.is_open()) {
-        cerr << "Error: Could not open config file." << endl;
+        cerr << "Error: Could not open config file. Using stored defaults." << endl;
         return;
     }
 
@@ -66,13 +59,10 @@ void readConfig(const string& filename) {
         stringstream ss(line);
         string key, value;
 
-        // Read the key
         if (ss >> key) {
-            // Read the rest of the line as the value (without trimming)
             ss >> ws;
             getline(ss, value);
 
-            // Assign the value to the appropriate variable based on the key
             if (key == "num-cpu") {
                 numCPU = stoi(value);
             }
@@ -80,22 +70,25 @@ void readConfig(const string& filename) {
                 schedulerType = trim(value);
             }
             else if (key == "quantum-cycles") {
-                quantumCycles = stoi(value);
+                quantumCycles = stoull(value);
             }
             else if (key == "batch-process-freq") {
-                batchProcessFreq = stoi(value);
+                batchProcessFreq = stoull(value);
             }
             else if (key == "min-ins") {
-                minInstructions = stoi(value);
+                minInstructions = stoull(value);
             }
             else if (key == "max-ins") {
-                maxInstructions = stoi(value);
+                maxInstructions = stoull(value);
+				if (maxInstructions < minInstructions) {
+					cerr << "Error: max-ins must be greater than or equal to min-ins. Using value min-ins + 1." << endl;
+					maxInstructions = minInstructions + 1;
+				}
             }
             else if (key == "delays-per-exec") {
-                delaysPerExec = stoi(value);
-                // Boundary is until 0 to 2^32 -1
-				if (delaysPerExec < 0 || delaysPerExec > UINT32_MAX) {
-					cout << "Error: delays-per-exec must be between 0 and 2^32 - 1. Using default value of 0." << endl;
+                delaysPerExec = stoull(value);
+                if (delaysPerExec < 0 || delaysPerExec > (4294967296ULL)) {
+					cout << "Error: delays-per-exec must be between 0 and 2^32. Using default value of 0." << endl;
 					delaysPerExec = 0;
 				}
 
@@ -105,26 +98,23 @@ void readConfig(const string& filename) {
 
     configFile.close();
 }
-CPUManager* cpuManager;
-RRScheduler* rrScheduler;
-FCFSScheduler* fcfsScheduler;
+
 
 void initialize() {
     if (!initialized) {
-        cout << "'initialize' command recognized. Initializing processes and starting scheduler." << endl << endl;
-        
-        readConfig("config.txt");
+        cout << "'initialize' command recognized. Starting scheduler." << endl << endl;
+		lock_guard<mutex> lock(mtx);
+		readConfig("config.txt"); //will use stored defaults if file not found
 
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
 
         if (schedulerType == "fcfs") {
-			// Initialize CPUManager and FCFSScheduler
+            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
 			fcfsScheduler = new FCFSScheduler(cpuManager);
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
 			schedulerThread.detach();
         }
         else if (schedulerType == "rr") {
-			// Initialize CPUManager and RoundRobinScheduler  
+            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
 			rrScheduler = new RRScheduler(cpuManager);
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
             schedulerThread.detach();
@@ -145,7 +135,7 @@ ull randomInsLength() {
     return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
 }
 
-thread processThread;
+
 void schedStartThread();
 void schedStop();
 void schedStart() {
@@ -186,7 +176,6 @@ void schedStartThread() {
         this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
     }
 
-    //cout << "Exiting schedStartThread." << endl;  // Log when exiting the thread
 }
 
 
@@ -210,7 +199,7 @@ void schedStop() {
 }
 
 void report() {
-    //export screen -ls to a file
+    //export current screen -ls to a file
     std::unique_lock<std::mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
@@ -258,7 +247,7 @@ void screens(const string& option, const string& name) {
         std::unique_lock<std::mutex> lock(mtx);
         for (auto screen : sm.processes) {
             if (screen->getProcessName() == name) {
-                int id = screen->getId();
+                ull id = screen->getId();
                 cout << "Reattaching to screen session: " << name << endl;
                 inScreen = true;
                 sm.reattatchProcess(name, id);
@@ -278,13 +267,11 @@ void screens(const string& option, const string& name) {
         }
         cout << "Starting new terminal session: " << name << endl;
 
-        // Create new process manually in screenManager and get instruction length
         ull instructions = randomInsLength();
         sm.addProcessManually(name, instructions);
 
         shared_ptr<process> newProcess = sm.processes.back();
 
-        // Add the process to the scheduler (either FCFS or RR)
         if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
             fcfsScheduler->addProcess(newProcess);
         }
@@ -351,16 +338,12 @@ void exitProgram() {
 
     if (processThread.joinable()) {
         processThread.join();
-        //cout << "Process thread stopped." << endl;
     }
 
     if (schedulerThread.joinable()) {
         schedulerThread.join();
-        //cout << "Scheduler thread stopped." << endl;
     }
 
-
-    // Exit program cleanly
     cout << "Program exited successfully." << endl;
     exit(0);
 }
@@ -419,7 +402,6 @@ void test() {
 int main() {
     g.printHeader();
 
-    // Only start command loop, initialization happens after 'initialize' command
     thread testThread(test);
     testThread.join();
 

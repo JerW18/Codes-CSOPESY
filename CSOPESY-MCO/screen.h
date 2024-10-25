@@ -136,7 +136,7 @@ public:
 		showProcess();
 	}
 
-    int getProcessCount() {
+    ull getProcessCount() {
         return processes.size();
     }
 
@@ -158,7 +158,7 @@ public:
         }
     }
 
-    void reattatchProcess(string processName, int id) {
+    void reattatchProcess(string processName, ull id) {
         for (auto &x : this->processes) {
             if (x->getProcessName() == processName && x->getId() == id) {
                 this->currentProcess = x;
@@ -183,7 +183,7 @@ public:
             cout << "Enter screen command: ";
             string input;
             getline(cin, input);
-            this->currentProcess->addInstructionToHistory(0, input);
+            //this->currentProcess->addInstructionToHistory(0, input);
             //this->currentProcess->incrementInstructionIndex();
             if(input == "exit") {
                 cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
@@ -216,7 +216,7 @@ public:
                 {
                     cout << "Invalid screen command \"" << input << "\"." << endl;
                     //this->currentProcess->incrementInstructionIndex();
-                    this->currentProcess->addInstructionToHistory(1, input);
+                    //this->currentProcess->addInstructionToHistory(1, input);
                 }
     }
     }
