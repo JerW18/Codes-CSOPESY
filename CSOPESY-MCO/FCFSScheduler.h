@@ -27,7 +27,7 @@ public:
         shared_ptr<process> currentProcess = nullptr;
         while (true) {
             if (processes.empty()) {
-                this_thread::sleep_for(chrono::milliseconds(100));
+                this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
             currentProcess = processes.front();

@@ -149,13 +149,14 @@ void schedStart() {
     }
 }
 
+bool firstProcess = true;
 void schedStartThread() {
     ull i = sm.getProcessCount();
     ull numIns = 0;
-	bool firstProcess = true;
 
     while (makeProcess) {
         std::unique_lock<std::mutex> lock(mtx);
+        i = sm.getProcessCount();
         if (firstProcess) {
             this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
             firstProcess = false;
@@ -171,7 +172,6 @@ void schedStartThread() {
         else if (schedulerType == "rr") {
             rrScheduler->addProcess(sm.processes.back());
         }
-        i = sm.getProcessCount() + 1;
         lock.unlock();
         this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
     }
@@ -351,6 +351,8 @@ void exitProgram() {
 
 
 map<string, void (*)()> commands = {
+    {"sst", schedStart},
+    {"ssp", schedStop},
     {"report-util", report},
 	{"scheduler-test", schedStart},
     {"scheduler-stop", schedStop},
