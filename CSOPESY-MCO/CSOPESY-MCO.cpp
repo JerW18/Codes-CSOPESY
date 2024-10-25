@@ -17,7 +17,6 @@
 typedef unsigned long long ull;
 using namespace std;
 
-// declare a global mutex
 mutex mtx;
 screenManager sm = screenManager(&mtx);
 global g;
@@ -31,8 +30,6 @@ bool inScreen = false;
 bool initialized = false; 
 bool makeProcess = false;
 
-
-// config vars
 int numCPU = 4;
 string schedulerType = "rr";
 ull quantumCycles = 5;
@@ -104,7 +101,7 @@ void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler." << endl << endl;
 		lock_guard<mutex> lock(mtx);
-		readConfig("config.txt"); //will use stored defaults if file not found
+		readConfig("config.txt");
 
 
         if (schedulerType == "fcfs") {
@@ -200,7 +197,7 @@ void schedStop() {
 }
 
 void report() {
-    //export current screen -ls to a file
+    //TO DO: export current screen -ls to a file
     std::unique_lock<std::mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
@@ -291,7 +288,6 @@ void screens(const string& option, const string& name) {
         std::unique_lock<std::mutex> lock(mtx);
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
-		//deque<shared_ptr<process>> processes = schedulerType == "rr" ? rrScheduler->processes : fcfsScheduler->processes;
 
         for (auto& screen : sm.processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() != -1) {

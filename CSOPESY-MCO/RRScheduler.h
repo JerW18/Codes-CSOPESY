@@ -35,13 +35,11 @@ public:
 				
             }
             if (processes.empty()) {
-				//cout << "No processes" << endl;
                 this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
             {
                 lock_guard<mutex> lock(mtx);
-				//cout << processes.size() << endl;
                 currentProcess = processes.front();
                 processes.pop_front();
             }
@@ -51,7 +49,6 @@ public:
 				processes.push_front(currentProcess);
 			}
             
-			//this_thread::sleep_for(chrono::milliseconds(50));
         }
     }
 

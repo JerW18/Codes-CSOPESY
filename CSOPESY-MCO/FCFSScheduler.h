@@ -36,7 +36,6 @@ public:
                 processes.pop_front();
             }
             cpuManager->startProcess(currentProcess);
-			//cout << "Process " << currentProcess->getId() << " started" << endl;
             if (currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
                 processes.push_front(currentProcess);
