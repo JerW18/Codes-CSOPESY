@@ -47,7 +47,7 @@ string trim(const string& str) {
 void readConfig(const string& filename) {
     ifstream configFile(filename);
     if (!configFile.is_open()) {
-        cerr << "Error: Could not open config file. Using stored defaults." << endl;
+        cerr << "Error: Could not open config file. Using stored defaults.\n" << endl;
         return;
     }
 
@@ -78,14 +78,14 @@ void readConfig(const string& filename) {
             else if (key == "max-ins") {
                 maxInstructions = stoull(value);
 				if (maxInstructions < minInstructions) {
-					cerr << "Error: max-ins must be greater than or equal to min-ins. Using value min-ins + 1." << endl;
+					cerr << "Error: max-ins must be greater than or equal to min-ins. Using value min-ins + 1.\n" << endl;
 					maxInstructions = minInstructions + 1;
 				}
             }
             else if (key == "delays-per-exec") {
                 delaysPerExec = stoull(value);
                 if (delaysPerExec < 0 || delaysPerExec > (4294967296ULL)) {
-					cout << "Error: delays-per-exec must be between 0 and 2^32. Using default value of 0." << endl;
+					cout << "Error: delays-per-exec must be between 0 and 2^32. Using default value of 0.\n" << endl;
 					delaysPerExec = 0;
 				}
 
@@ -99,7 +99,7 @@ void readConfig(const string& filename) {
 
 void initialize() {
     if (!initialized) {
-        cout << "'initialize' command recognized. Starting scheduler." << endl << endl;
+        cout << "'initialize' command recognized. Starting scheduler.\n" << endl << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
 
@@ -117,14 +117,14 @@ void initialize() {
             schedulerThread.detach();
         }
         else {
-            cerr << "Error: Unknown scheduler type specified in config file." << endl;
+            cerr << "Error: Unknown scheduler type specified in config file.\n" << endl;
             return;
         }
 
         initialized = true;  
     }
     else {
-        cout << "'initialize' command has already been executed." << endl;
+        cout << "'initialize' command has already been executed.\n" << endl;
     }
 }
 
@@ -208,11 +208,25 @@ void report() {
     reportFile << "----------------------------------" << endl;
     reportFile << "Running Processes:" << endl;
 
-    for (auto screen : sm.processes) {
-        if (!screen->isFinished()) {
+    // List running processes that have been assigned a core
+    for (auto& screen : sm.processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
             reportFile << screen->getProcessName() << " ("
                 << screen->getDateOfBirth() << ") Core: "
-                << screen->getCoreAssigned() << " "
+                << screen->getCoreAssigned() << " Running "
+                << screen->getInstructionIndex() << " / "
+                << screen->getTotalInstructions() << endl;
+        }
+    }
+
+    reportFile << endl;
+    reportFile << "Ready Processes (!! NOT IN QUEUE ORDER !!):" << endl;
+
+    // List ready processes that are not currently assigned to a core
+    for (auto& screen : sm.processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Ready "
                 << screen->getInstructionIndex() << " / "
                 << screen->getTotalInstructions() << endl;
         }
@@ -221,11 +235,11 @@ void report() {
     reportFile << endl;
     reportFile << "Finished Processes:" << endl;
 
-    for (auto screen : sm.processes) {
+    // List finished processes
+    for (auto& screen : sm.processes) {
         if (screen->isFinished()) {
             reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Core: "
-                << screen->getCoreAssigned() << " Finished "
+                << screen->getDateOfBirth() << ") Finished "
                 << screen->getTotalInstructions() << " / "
                 << screen->getTotalInstructions() << endl;
         }
@@ -233,8 +247,9 @@ void report() {
 
     reportFile << "----------------------------------" << endl;
     reportFile.close();
-	lock.unlock();
-    cout << "Report generated." << endl;
+    lock.unlock();
+
+    cout << "Report generated.\n" << endl;
 }
 
 
@@ -252,14 +267,14 @@ void screens(const string& option, const string& name) {
                 return;
             }
         }
-        cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen." << endl;
+        cout << "Screen not found. Try a different name or use screen -s <name> to start a new screen.\n" << endl;
 		lock.unlock();
     }
     else if (option == "-s") {
         std::unique_lock<std::mutex> lock(mtx);
         for (auto screen : sm.processes) {
             if (screen->getProcessName() == name) {
-                cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it." << endl;
+                cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it.\n" << endl;
                 return;
             }
         }
@@ -277,7 +292,7 @@ void screens(const string& option, const string& name) {
             rrScheduler->addProcess(newProcess);
         }
         else {
-            cout << "Error: Scheduler not initialized or unknown scheduler type." << endl;
+            cout << "Error: Scheduler not initialized or unknown scheduler type.\n" << endl;
         }
 
         inScreen = true;
@@ -327,7 +342,7 @@ void screens(const string& option, const string& name) {
         lock.unlock();
     }
     else {
-        cout << "Invalid screen option: " << option << endl;
+        cout << "Invalid screen option: " << option << "\n" << endl;
     }
 }
 
@@ -389,7 +404,7 @@ void test() {
         vector<string> tokens = splitInput(input);
 
         if (tokens.empty()) {
-            cout << "Invalid command." << endl;
+            cout << "Invalid command.\n" << endl;
             continue;
         }
 
@@ -405,7 +420,7 @@ void test() {
             commands[command]();
         }
         else {
-            cout << "Invalid command '" << command << "'" << endl;
+            cout << "Invalid command '" << command << "'\n" << endl;
         }
     }
 }
