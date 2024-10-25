@@ -140,12 +140,12 @@ void schedStartThread();
 void schedStop();
 void schedStart() {
     if (initialized && !makeProcess) {
-        cout << "Starting scheduler." << endl;
+        cout << "Starting scheduler.\n" << endl;
         makeProcess = true;
         processThread = thread(schedStartThread);
     }
     else {
-        cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
     }
 }
 
@@ -173,7 +173,8 @@ void schedStartThread() {
             rrScheduler->addProcess(sm.processes.back());
         }
         lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
+        if(!firstProcess)
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
     }
 
 }
@@ -186,15 +187,15 @@ void schedStop() {
 			makeProcess = false;
 			if (processThread.joinable()) {
                 processThread.join();
-				cout << "Scheduler stopped." << endl;
+				cout << "Scheduler stopped.\n" << endl;
 			}
 		}
 		else {
-			cout << "Scheduler is already stopped." << endl;
+			cout << "Scheduler is already stopped.\n" << endl;
 		}
 	}
 	else {
-		cout << "Error: Scheduler not initialized. Use 'initialize' command first." << endl;
+		cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
 	}
 }
 
@@ -290,12 +291,25 @@ void screens(const string& option, const string& name) {
         std::unique_lock<std::mutex> lock(mtx);
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
+		//deque<shared_ptr<process>> processes = schedulerType == "rr" ? rrScheduler->processes : fcfsScheduler->processes;
 
-        for (auto &screen : sm.processes) {
-            if (!screen->isFinished()) {
+        for (auto& screen : sm.processes) {
+            if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
-                    << screen->getCoreAssigned() << " "
+                    << screen->getCoreAssigned() << " Running "
+                    << screen->getInstructionIndex() << " / "
+                    << screen->getTotalInstructions() << endl;
+            }
+        }
+
+        cout << endl;
+        cout << "Ready Processes (!! NOT IN QUEUE ORDER !!):" << endl;
+
+        for (auto& screen : sm.processes) {
+            if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+                cout << screen->getProcessName() << " ("
+                    << screen->getDateOfBirth() << ") Ready "
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << endl;
             }
@@ -304,18 +318,17 @@ void screens(const string& option, const string& name) {
         cout << endl;
         cout << "Finished Processes:" << endl;
 
-        for (auto &screen : sm.processes) {
+        for (auto& screen : sm.processes) {
             if (screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
-                    << screen->getDateOfBirth() << ") Core: "
-                    << screen->getCoreAssigned() << " Finished "
+                    << screen->getDateOfBirth() << ") Finished "
                     << screen->getTotalInstructions() << " / "
                     << screen->getTotalInstructions() << endl;
             }
         }
 
         cout << "----------------------------------" << endl;
-		lock.unlock();
+        lock.unlock();
     }
     else {
         cout << "Invalid screen option: " << option << endl;

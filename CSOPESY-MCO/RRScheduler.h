@@ -10,10 +10,11 @@ using namespace std;
 
 class RRScheduler {
 private:
-    deque<shared_ptr<process>> processes;
     CPUManager* cpuManager;
     mutex mtx;
 public:
+
+    deque<shared_ptr<process>> processes;
     RRScheduler(CPUManager* cpuManager) {
         this->cpuManager = cpuManager;
     }
@@ -26,20 +27,30 @@ public:
     void start() {
         shared_ptr<process> currentProcess = nullptr;
         while (true) {
+            {
+				vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
+                for (auto p : toAdd) {
+					addProcess(p);
+                }
+				
+            }
             if (processes.empty()) {
+				//cout << "No processes" << endl;
                 this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
             {
                 lock_guard<mutex> lock(mtx);
+				//cout << processes.size() << endl;
                 currentProcess = processes.front();
                 processes.pop_front();
             }
             cpuManager->startProcess(currentProcess);
-            if (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+			if (currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
-                processes.push_back(currentProcess);
-            }
+				processes.push_front(currentProcess);
+			}
+            
 			//this_thread::sleep_for(chrono::milliseconds(50));
         }
     }

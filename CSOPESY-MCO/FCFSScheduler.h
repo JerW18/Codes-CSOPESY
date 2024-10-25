@@ -10,10 +10,10 @@ using namespace std;
 class FCFSScheduler 
 {
 private:
-    deque<shared_ptr<process>> processes;
     CPUManager* cpuManager;
     mutex mtx;
 public:
+    deque<shared_ptr<process>> processes;
     FCFSScheduler(CPUManager* cpuManager) {
         this->cpuManager = cpuManager;
     }
@@ -30,9 +30,17 @@ public:
                 this_thread::sleep_for(chrono::milliseconds(50));
                 continue;
             }
-            currentProcess = processes.front();
-            processes.pop_front();
+            {
+                lock_guard<mutex> lock(mtx);
+                currentProcess = processes.front();
+                processes.pop_front();
+            }
             cpuManager->startProcess(currentProcess);
+			//cout << "Process " << currentProcess->getId() << " started" << endl;
+            if (currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes.push_front(currentProcess);
+            }
         }
     }
     void getSize() {

@@ -22,10 +22,10 @@ private:
     counting_semaphore<>& clockSemaphore;
 
     void run() {
+        int instructionsExecuted = 0;
         while (true) {
             if (!available && currentProcess != nullptr) {
-                int instructionsExecuted = 0;
-
+                instructionsExecuted = 0;
                 if (schedulerType == "rr") {
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
@@ -41,11 +41,12 @@ private:
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                         available = true;
                         currentProcess = nullptr;
-                        clockSemaphore.release();
+                        //clockSemaphore.release();
                     }
                     else {
                         available = true;
-                        clockSemaphore.release();
+                        currentProcess->assignCore(-1);
+                        //clockSemaphore.release();
                     }
 
                 }
@@ -60,7 +61,7 @@ private:
                     }
                     available = true;
                     currentProcess = nullptr;
-                    clockSemaphore.release();
+                    //clockSemaphore.release();
                 }
             }
 
@@ -90,6 +91,18 @@ public:
     bool isAvailable() {
         return available;
     }
+
+	shared_ptr<process> getCurrentProcess() {
+		return currentProcess;
+	}
+
+	void setCurrentProcess(shared_ptr<process> proc) {
+		currentProcess = proc;
+	}
+
+	void setCurrentProcessNull() {
+		currentProcess = nullptr;
+	}
 };
 
 
@@ -106,21 +119,36 @@ public:
         }
     }
 
+	
+
+	vector<shared_ptr<process>> isAnyoneAvailable() {
+		vector<shared_ptr<process>> availableProcesses;
+		for (int i = 0; i < numCpus; i++) {
+			if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess()) {
+				availableProcesses.push_back(cpuWorkers[i]->getCurrentProcess());
+				cpuWorkers[i]->setCurrentProcessNull();
+			}
+		}
+		return availableProcesses;
+	}
+
 
     void startProcess(shared_ptr<process> proc) {
-        clockSemaphore.acquire();
-
-        while (true) {
+        //clockSemaphore.acquire();
+        //while (true) {
             for (int i = 0; i < numCpus; i++) {
-                if (cpuWorkers[i]->isAvailable()) {
+                if (cpuWorkers[i]->isAvailable() && proc->getCoreAssigned() == -1 && cpuWorkers[i]->getCurrentProcess() == nullptr) {
+                    //cout << "Process " << proc->getId() << " assigned to CPU " << i << endl;
                     proc->assignCore(i);
-                    cpuWorkers[i]->assignScreen(proc); 
+                    cpuWorkers[i]->assignScreen(proc);
                     return;
                 }
             }
             //this_thread::sleep_for(chrono::milliseconds(50));
-        }
+        //}
     }
+
+   
 
     ~CPUManager() {
         for (int i = 0; i < numCpus; i++) {
