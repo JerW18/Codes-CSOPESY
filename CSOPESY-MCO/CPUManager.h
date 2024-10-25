@@ -29,42 +29,42 @@ private:
                 if (schedulerType == "rr") {
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        // Busy-wait for `delaysPerExec` cycles before executing the instruction
+                        
                         for (int i = 0; i < delaysPerExec; i++) {
-                            this_thread::sleep_for(chrono::milliseconds(100));  // Simulate one CPU cycle of delay
+                            this_thread::sleep_for(chrono::milliseconds(50));
                         }
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
-                        this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
+                        this_thread::sleep_for(chrono::milliseconds(50));
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                         available = true;
                         currentProcess = nullptr;
-                        clockSemaphore.release();  // Release semaphore when task is finished
+                        clockSemaphore.release();
                     }
                     else {
-                        available = true;  // Mark worker available after quantum slice (RR logic)
-                        clockSemaphore.release();  // Release semaphore even if quantum finished
+                        available = true;
+                        clockSemaphore.release();
                     }
 
                 }
                 else if (schedulerType == "fcfs") {
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        // Busy-wait for `delaysPerExec` cycles before executing the instruction
+                        
                         for (int i = 0; i < delaysPerExec; i++) {
-                            this_thread::sleep_for(chrono::milliseconds(100));  // Simulate one CPU cycle of delay
-                        }
+                            this_thread::sleep_for(chrono::milliseconds(50));
+                        } 
                         currentProcess->incrementInstructionIndex();
-                        this_thread::sleep_for(chrono::milliseconds(100));  // Simulate work
+                        this_thread::sleep_for(chrono::milliseconds(50));
                     }
-                    available = true;  // Mark the CPU as available
-                    currentProcess = nullptr;  // Clear the process
-                    clockSemaphore.release();  // Release semaphore after task completion
+                    available = true;
+                    currentProcess = nullptr;
+                    clockSemaphore.release();
                 }
             }
 
-            this_thread::sleep_for(chrono::milliseconds(100));  // Sleep briefly to avoid busy-waiting
+            //this_thread::sleep_for(chrono::milliseconds(50));  // Sleep briefly to avoid busy-waiting
         }
     }
 
@@ -118,7 +118,7 @@ public:
                     return;
                 }
             }
-            this_thread::sleep_for(chrono::milliseconds(50));
+            //this_thread::sleep_for(chrono::milliseconds(50));
         }
     }
 

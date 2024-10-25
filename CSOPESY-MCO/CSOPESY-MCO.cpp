@@ -69,7 +69,7 @@ void readConfig(const string& filename) {
         // Read the key
         if (ss >> key) {
             // Read the rest of the line as the value (without trimming)
-            ss >> ws; // Ignore leading whitespace
+            ss >> ws;
             getline(ss, value);
 
             // Assign the value to the appropriate variable based on the key
@@ -93,6 +93,12 @@ void readConfig(const string& filename) {
             }
             else if (key == "delays-per-exec") {
                 delaysPerExec = stoi(value);
+                // Boundary is until 0 to 2^32 -1
+				if (delaysPerExec < 0 || delaysPerExec > UINT32_MAX) {
+					cout << "Error: delays-per-exec must be between 0 and 2^32 - 1. Using default value of 0." << endl;
+					delaysPerExec = 0;
+				}
+
             }
         }
     }
@@ -156,11 +162,18 @@ void schedStart() {
 void schedStartThread() {
     ull i = sm.getProcessCount();
     ull numIns = 0;
+	bool firstProcess = true;
 
     while (makeProcess) {
         std::unique_lock<std::mutex> lock(mtx);
-		numIns = randomInsLength();
-        string processName = "p_" + to_string(i);
+        if (firstProcess) {
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
+            firstProcess = false;
+        }
+        numIns = randomInsLength();
+
+		
+		string processName = "p_" + to_string(i);
         sm.addProcess(processName, numIns);
         if (schedulerType == "fcfs") {
             fcfsScheduler->addProcess(sm.processes.back());
@@ -170,11 +183,12 @@ void schedStartThread() {
         }
         i = sm.getProcessCount() + 1;
         lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 500));
-
-		
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
     }
+
+    //cout << "Exiting schedStartThread." << endl;  // Log when exiting the thread
 }
+
 
 void schedStop() {
 	if (initialized) {
@@ -266,7 +280,7 @@ void screens(const string& option, const string& name) {
 
         // Create new process manually in screenManager and get instruction length
         ull instructions = randomInsLength();
-        sm.addProcessManually(name, instructions);  // Create a new process in screenManager
+        sm.addProcessManually(name, instructions);
 
         shared_ptr<process> newProcess = sm.processes.back();
 
@@ -331,26 +345,31 @@ void clearScreen() {
 }
 
 void exitProgram() {
-	cout << "Exiting program." << endl;
-    if (schedulerThread.joinable()) {
-        schedulerThread.join();  
-		cout << "Thread Scheduler stopped." << endl;
+    cout << "Exiting program." << endl;
+
+    makeProcess = false;
+
+    if (processThread.joinable()) {
+        processThread.join();
+        //cout << "Process thread stopped." << endl;
     }
-    delete cpuManager;
-    delete rrScheduler;
-    delete fcfsScheduler;
-    // Cleanup the CPU manager and schedulers
-    
+
+    if (schedulerThread.joinable()) {
+        schedulerThread.join();
+        //cout << "Scheduler thread stopped." << endl;
+    }
+
+
+    // Exit program cleanly
+    cout << "Program exited successfully." << endl;
     exit(0);
 }
 
 
+
 map<string, void (*)()> commands = {
-    {"ini", initialize},
-	{"sst", schedStart},
-	{"ssp", schedStop},
     {"report-util", report},
-	{"scheduler-start", schedStart},
+	{"scheduler-test", schedStart},
     {"scheduler-stop", schedStop},
     {"initialize", initialize},
     {"clear", clearScreen},
