@@ -136,7 +136,15 @@ public:
 
     }
 
-   
+	int getCoresAvailable() {
+		int coresAvailable = 0;
+		for (int i = 0; i < numCpus; i++) {
+			if (cpuWorkers[i]->isAvailable()) {
+				coresAvailable++;
+			}
+		}
+		return coresAvailable;
+	}
 
     ~CPUManager() {
         for (int i = 0; i < numCpus; i++) {

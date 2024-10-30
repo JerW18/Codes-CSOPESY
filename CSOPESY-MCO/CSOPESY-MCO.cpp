@@ -99,7 +99,7 @@ void readConfig(const string& filename) {
 
 void initialize() {
     if (!initialized) {
-        cout << "'initialize' command recognized. Starting scheduler.\n" << endl << endl;
+        cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
 
@@ -131,7 +131,6 @@ void initialize() {
 ull randomInsLength() {
     return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
 }
-
 
 void schedStartThread();
 void schedStop();
@@ -197,7 +196,11 @@ void schedStop() {
 }
 
 void report() {
-    //TO DO: export current screen -ls to a file
+    if (!initialized) {
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+		return;
+    }
+
     std::unique_lock<std::mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
@@ -205,6 +208,9 @@ void report() {
         return;
     }
 
+    reportFile << "CPU Utilization: " << (numCPU - cpuManager->getCoresAvailable()) / numCPU * 100 << "%" << endl;
+    reportFile << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
+    reportFile << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
     reportFile << "----------------------------------" << endl;
     reportFile << "Running Processes:" << endl;
 
@@ -256,6 +262,11 @@ void report() {
 
 
 void screens(const string& option, const string& name) {
+    if (!initialized) {
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+        return;
+    }
+
     if (option == "-r") {
         std::unique_lock<std::mutex> lock(mtx);
         for (auto screen : sm.processes) {
@@ -301,6 +312,9 @@ void screens(const string& option, const string& name) {
     }
     else if (option == "-ls") {
         std::unique_lock<std::mutex> lock(mtx);
+		cout << "CPU Utilization: " << (numCPU - cpuManager->getCoresAvailable()) / numCPU * 100 << "%" << endl;
+		cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
+		cout << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
         cout << "----------------------------------" << endl;
         cout << "Running Processes:" << endl;
 
@@ -375,8 +389,6 @@ void exitProgram() {
 
 
 map<string, void (*)()> commands = {
-    {"sst", schedStart},
-    {"ssp", schedStop},
     {"report-util", report},
 	{"scheduler-test", schedStart},
     {"scheduler-stop", schedStop},
