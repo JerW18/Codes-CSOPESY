@@ -47,7 +47,7 @@ string trim(const string& str) {
 void readConfig(const string& filename) {
     ifstream configFile(filename);
     if (!configFile.is_open()) {
-        cerr << "Error: Could not open config file. Using stored defaults.\n" << endl;
+        cout << "Error: Could not open config file. Using stored defaults.\n" << endl;
         return;
     }
 
@@ -62,25 +62,54 @@ void readConfig(const string& filename) {
 
             if (key == "num-cpu") {
                 numCPU = stoi(value);
-            }
+				if (stoi(value) < 1 || stoi(value) > 128) {
+					cout << "Error: num-cpu must be within the range of 1 to 128. Default value of 4 will be set\n" << endl;
+					numCPU = 4;
+				}
+			}
             else if (key == "scheduler") {
+				// schedulerType should only be fcfs or rr
                 schedulerType = trim(value);
+
+				if (schedulerType != "fcfs" && schedulerType != "rr") {
+					cout << "Error: Unknown scheduler type specified in config file. Using default value of 'fcfs'.\n" << endl;
+					schedulerType = "fcfs";
+				}
             }
             else if (key == "quantum-cycles") {
                 quantumCycles = stoull(value);
+                if (quantumCycles < 1 || quantumCycles > 4294967296ULL) {
+					cout << "Error: quantum-cycles must be between 1 and 2^32. Using default value of 5.\n" << endl;
+					quantumCycles = 5;
+                }
+
             }
             else if (key == "batch-process-freq") {
                 batchProcessFreq = stoull(value);
+                if (batchProcessFreq < 1 || batchProcessFreq > 4294967296ULL) {
+					cout << "Error: batch-process-freq must be between 1 and 2^32. Using default value of 1.\n" << endl;
+					batchProcessFreq = 1;
+
+                }
             }
             else if (key == "min-ins") {
                 minInstructions = stoull(value);
+				if (minInstructions < 1 || minInstructions > 4294967296ULL) {
+					cout << "Error: min-ins must be between 1 and 2^32. Using default value of 1000.\n" << endl;
+					minInstructions = 1000;
+				}
+			}
             }
             else if (key == "max-ins") {
                 maxInstructions = stoull(value);
 				if (maxInstructions < minInstructions) {
-					cerr << "Error: max-ins must be greater than or equal to min-ins. Using value min-ins + 1.\n" << endl;
+					cout << "Error: max-ins must be greater than or equal to min-ins. Using value min-ins + 1.\n" << endl;
 					maxInstructions = minInstructions + 1;
 				}
+                if (maxInstructions < 1 || maxInstructions > 4294967296ULL) {
+                    cout << "Error: max-ins must be between 1 and 2^32. Using default value of 2000.\n" << endl;
+                    maxInstructions = 2000;
+                }
             }
             else if (key == "delays-per-exec") {
                 delaysPerExec = stoull(value);
@@ -91,7 +120,6 @@ void readConfig(const string& filename) {
 
             }
         }
-    }
 
     configFile.close();
 }
@@ -117,7 +145,7 @@ void initialize() {
             schedulerThread.detach();
         }
         else {
-            cerr << "Error: Unknown scheduler type specified in config file.\n" << endl;
+            cout << "Error: Unknown scheduler type specified in config file.\n" << endl;
             return;
         }
 
@@ -154,7 +182,7 @@ void schedStartThread() {
         std::unique_lock<std::mutex> lock(mtx);
         i = sm.getProcessCount();
         if (firstProcess) {
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
             firstProcess = false;
         }
         numIns = randomInsLength();
@@ -170,7 +198,7 @@ void schedStartThread() {
         }
         lock.unlock();
         if(!firstProcess)
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 50));
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
     }
 
 }
@@ -204,17 +232,16 @@ void report() {
     std::unique_lock<std::mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
-        cerr << "Error: Could not open report file." << endl;
+        cout << "Error: Could not open report file." << endl;
         return;
     }
 
-    reportFile << "CPU Utilization: " << (numCPU - cpuManager->getCoresAvailable()) / numCPU * 100 << "%" << endl;
+    reportFile << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
     reportFile << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
     reportFile << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
     reportFile << "----------------------------------" << endl;
     reportFile << "Running Processes:" << endl;
 
-    // List running processes that have been assigned a core
     for (auto& screen : sm.processes) {
         if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
             reportFile << screen->getProcessName() << " ("
@@ -226,11 +253,18 @@ void report() {
     }
 
     reportFile << endl;
-    reportFile << "Ready Processes (!! NOT IN QUEUE ORDER !!):" << endl;
+    reportFile << "Ready Processes:" << endl;
 
-    // List ready processes that are not currently assigned to a core
-    for (auto& screen : sm.processes) {
-        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+    vector<shared_ptr<process>> readyQueue;
+    if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
+        readyQueue = fcfsScheduler->getReadyQueue();
+    }
+    else if (schedulerType == "rr" && rrScheduler != nullptr) {
+        readyQueue = rrScheduler->getReadyQueue();
+    }
+
+    for (auto& screen : readyQueue) {
+        if (!screen->isFinished()) {
             reportFile << screen->getProcessName() << " ("
                 << screen->getDateOfBirth() << ") Ready "
                 << screen->getInstructionIndex() << " / "
@@ -238,10 +272,10 @@ void report() {
         }
     }
 
+
     reportFile << endl;
     reportFile << "Finished Processes:" << endl;
 
-    // List finished processes
     for (auto& screen : sm.processes) {
         if (screen->isFinished()) {
             reportFile << screen->getProcessName() << " ("
@@ -312,12 +346,13 @@ void screens(const string& option, const string& name) {
     }
     else if (option == "-ls") {
         std::unique_lock<std::mutex> lock(mtx);
-		cout << "CPU Utilization: " << (numCPU - cpuManager->getCoresAvailable()) / numCPU * 100 << "%" << endl;
-		cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
-		cout << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
-        cout << "----------------------------------" << endl;
-        cout << "Running Processes:" << endl;
 
+        cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
+        cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
+        cout << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
+        cout << "----------------------------------" << endl;
+
+        cout << "Running Processes:" << endl;
         for (auto& screen : sm.processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
                 cout << screen->getProcessName() << " ("
@@ -329,10 +364,17 @@ void screens(const string& option, const string& name) {
         }
 
         cout << endl;
-        cout << "Ready Processes (!! NOT IN QUEUE ORDER !!):" << endl;
+        cout << "Ready Processes:" << endl;
+        vector<shared_ptr<process>> readyQueue;
+        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
+            readyQueue = fcfsScheduler->getReadyQueue();
+        }
+        else if (schedulerType == "rr" && rrScheduler != nullptr) {
+            readyQueue = rrScheduler->getReadyQueue();
+        }
 
-        for (auto& screen : sm.processes) {
-            if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+        for (auto& screen : readyQueue) {
+            if (!screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Ready "
                     << screen->getInstructionIndex() << " / "

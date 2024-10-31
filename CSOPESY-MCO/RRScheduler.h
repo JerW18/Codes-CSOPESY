@@ -24,6 +24,11 @@ public:
         processes.push_back(process);
     }
 
+    vector<shared_ptr<process>> getReadyQueue() {
+        lock_guard<mutex> lock(mtx);
+        return vector<shared_ptr<process>>(processes.begin(), processes.end());
+    }
+
     void start() {
         shared_ptr<process> currentProcess = nullptr;
         while (true) {

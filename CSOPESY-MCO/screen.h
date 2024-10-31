@@ -110,7 +110,6 @@ class screenManager {
 private:
     ull maxId = 0;
     shared_ptr<process> currentProcess = nullptr;
-    // pointer for mutex
     mutex* m;
 public:
     vector<shared_ptr<process>> processes;
@@ -132,7 +131,6 @@ public:
 		processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
 		currentProcess = processes.back();
 		inScreen = true;
-		//this->maxId++;
 		showProcess();
 	}
 
@@ -183,8 +181,6 @@ public:
             cout << "Enter screen command: ";
             string input;
             getline(cin, input);
-            //this->currentProcess->addInstructionToHistory(0, input);
-            //this->currentProcess->incrementInstructionIndex();
             if(input == "exit") {
                 cout << "Exiting screen " << this->currentProcess->getProcessName() << "." << endl;
                 inScreen = false;
@@ -215,8 +211,6 @@ public:
             else
                 {
                     cout << "Invalid screen command \"" << input << "\"." << endl;
-                    //this->currentProcess->incrementInstructionIndex();
-                    //this->currentProcess->addInstructionToHistory(1, input);
                 }
     }
     }
