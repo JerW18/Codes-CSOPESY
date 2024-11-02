@@ -181,7 +181,7 @@ void schedStartThread() {
         std::unique_lock<std::mutex> lock(mtx);
         i = sm.getProcessCount();
         if (firstProcess) {
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 1000));
             firstProcess = false;
         }
         numIns = randomInsLength();
@@ -197,7 +197,7 @@ void schedStartThread() {
         }
         lock.unlock();
         if(!firstProcess)
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 1000));
     }
 
 }

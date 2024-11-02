@@ -1,27 +1,21 @@
-#pragma once
-#include "screen.h"
-#include <queue>
-#include <thread>
-#include <iostream>
-#include <atomic>
-#include "CPUManager.h"
-
-using namespace std;
+#include <condition_variable> // Add this for condition variable
 
 class RRScheduler {
 private:
     CPUManager* cpuManager;
     mutex mtx;
-public:
-
+    condition_variable cv; // Condition variable to notify when a new process is added
     deque<shared_ptr<process>> processes;
-    RRScheduler(CPUManager* cpuManager) {
-        this->cpuManager = cpuManager;
-    }
+
+public:
+    RRScheduler(CPUManager* cpuManager) : cpuManager(cpuManager) {}
 
     void addProcess(shared_ptr<process> process) {
-        lock_guard<mutex> lock(mtx);
-        processes.push_back(process);
+        {
+            lock_guard<mutex> lock(mtx);
+            processes.push_back(process);
+        }
+        cv.notify_one();
     }
 
     vector<shared_ptr<process>> getReadyQueue() {
@@ -32,32 +26,34 @@ public:
     void start() {
         shared_ptr<process> currentProcess = nullptr;
         while (true) {
+
             {
-				vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
-                for (auto p : toAdd) {
-					addProcess(p);
+                vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
+                for (auto& p : toAdd) {
+                    addProcess(p);
                 }
-				
             }
-            if (processes.empty()) {
-                this_thread::sleep_for(chrono::milliseconds(50));
-                continue;
-            }
+
             {
-                lock_guard<mutex> lock(mtx);
+                unique_lock<mutex> lock(mtx);
+                cv.wait(lock, [this] { return !processes.empty(); }); // Wait for a process to be added
+
+
                 currentProcess = processes.front();
                 processes.pop_front();
             }
+
             cpuManager->startProcess(currentProcess);
-			if (currentProcess->getCoreAssigned() == -1) {
+
+            if (currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
-				processes.push_front(currentProcess);
-			}
-            
+                processes.push_front(currentProcess);
+            }
         }
     }
 
     void getSize() {
-        cout << processes.size() << endl;
+        lock_guard<mutex> lock(mtx);
+        cout << "Queue size: " << processes.size() << endl;
     }
 };

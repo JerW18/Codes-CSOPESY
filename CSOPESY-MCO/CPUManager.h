@@ -32,18 +32,19 @@ private:
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                         lock_guard<mutex> lock(mtx);
 
-                        this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
+                        this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
-                        this_thread::sleep_for(chrono::milliseconds(100));
+                        this_thread::sleep_for(chrono::milliseconds(1000));
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+						//lock_guard<mutex> lock(mtx);
                         available = true;
                         currentProcess = nullptr;
                     }
                     else {
-                        lock_guard<mutex> lock(mtx);
+                        //lock_guard<mutex> lock(mtx);
 
                         available = true;
                         currentProcess->assignCore(-1);
@@ -107,6 +108,7 @@ class CPUManager {
 private:
     vector<CPUWorker*> cpuWorkers;
     int numCpus;
+    mutex mtx;
 
 
 public:
@@ -134,15 +136,17 @@ public:
         if (!proc) {
             return;
         }
+		lock_guard<mutex> lock(mtx);
         for (int i = 0; i < numCpus; i++) {
-            if (cpuWorkers[i]->isAvailable() && proc->getCoreAssigned() == -1 && cpuWorkers[i]->getCurrentProcess() == nullptr) {
-                proc->assignCore(i);
+            if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
+                proc->assignCore(i); // Assign the process to this idle core
                 cpuWorkers[i]->assignScreen(proc);
+                //cout << "Process " << proc->getId() << " assigned to idle core " << i << endl;
                 return;
             }
         }
-
     }
+
 
 	int getCoresAvailable() {
 		int coresAvailable = 0;
