@@ -18,6 +18,7 @@ private:
     ull quantumCycles;
     ull delaysPerExec;
     string schedulerType;
+    mutex mtx;
 
     void run() {
         int instructionsExecuted = 0;
@@ -25,8 +26,12 @@ private:
             if (!available && currentProcess != nullptr) {
                 instructionsExecuted = 0;
                 if (schedulerType == "rr") {
+                    
+
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        lock_guard<mutex> lock(mtx);
+
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
@@ -38,20 +43,25 @@ private:
                         currentProcess = nullptr;
                     }
                     else {
+                        lock_guard<mutex> lock(mtx);
+
                         available = true;
                         currentProcess->assignCore(-1);
                     }
 
                 }
                 else if (schedulerType == "fcfs") {
+                    
+
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                        lock_guard<mutex> lock(mtx);
+
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         this_thread::sleep_for(chrono::milliseconds(100));
                     }
                     available = true;
                     currentProcess = nullptr;
-
                 }
             }
         }
@@ -121,13 +131,16 @@ public:
 
 
     void startProcess(shared_ptr<process> proc) {
-            for (int i = 0; i < numCpus; i++) {
-                if (cpuWorkers[i]->isAvailable() && proc->getCoreAssigned() == -1 && cpuWorkers[i]->getCurrentProcess() == nullptr) {
-                    proc->assignCore(i);
-                    cpuWorkers[i]->assignScreen(proc);
-                    return;
-                }
+        if (!proc) {
+            return;
+        }
+        for (int i = 0; i < numCpus; i++) {
+            if (cpuWorkers[i]->isAvailable() && proc->getCoreAssigned() == -1 && cpuWorkers[i]->getCurrentProcess() == nullptr) {
+                proc->assignCore(i);
+                cpuWorkers[i]->assignScreen(proc);
+                return;
             }
+        }
 
     }
 

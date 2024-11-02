@@ -25,10 +25,7 @@ private:
     vector<pair<int, string>> inputHistory;
     int coreAssigned = -1;
 
- 
-
 public:
-
 
     string getProcessName() {
         return this->processName;
@@ -101,7 +98,6 @@ public:
 		this->dateOfBirth = other.dateOfBirth;
 		this->inputHistory = other.inputHistory;
 		this->coreAssigned = other.coreAssigned;
-
     }
   
 };
