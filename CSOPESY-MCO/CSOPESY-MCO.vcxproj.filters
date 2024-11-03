@@ -47,5 +47,8 @@
     <ClInclude Include="RRScheduler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TS.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -6,18 +6,21 @@
 #include "timeStamp.h"
 #include <fstream>
 #include <memory>
+#include "TS.h"
+
 
 using namespace std;
 
 class CPUWorker {
 private:
     int cpu_Id;
-    shared_ptr<process> currentProcess;
+    process* currentProcess;
     atomic<bool> available;
     thread workerThread;
     ull quantumCycles;
     ull delaysPerExec;
     string schedulerType;
+	TS <process* >* schedulerQueue;
     mutex mtx;
 
     void run() {
@@ -47,6 +50,7 @@ private:
                     else {
                         //lock_guard<mutex> lock(mtx);
                         currentProcess->assignCore(-1);
+						schedulerQueue->push(currentProcess);
                         available = true;
                     }
 
@@ -65,14 +69,15 @@ private:
                     currentProcess = nullptr;
                 }
             }
-			this_thread::sleep_for(chrono::milliseconds(100));
+			this_thread::sleep_for(chrono::milliseconds(1));
         }
     }
 
 public:
-    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType)
+    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, TS<process* >*schedulerQueue)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType) {
         workerThread = thread(&CPUWorker::run, this);
+        this->schedulerQueue = schedulerQueue;
 		workerThread.detach();
     }
 
@@ -82,7 +87,7 @@ public:
         }
     }
 
-    void assignScreen(shared_ptr<process> proc) {
+    void assignScreen(process* proc) {
         currentProcess = proc;
         available = false;
     }
@@ -91,11 +96,11 @@ public:
         return available;
     }
 
-	shared_ptr<process> getCurrentProcess() {
+	process* getCurrentProcess() {
 		return currentProcess;
 	}
 
-	void setCurrentProcess(shared_ptr<process> proc) {
+	void setCurrentProcess(process* proc) {
 		currentProcess = proc;
 	}
 
@@ -113,18 +118,18 @@ private:
 
 
 public:
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType) : numCpus(numCpus) {
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, TS<process *> *schedulerQueue) : numCpus(numCpus) {
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType));
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, schedulerQueue));
         }
     }
 
 	
 
-	vector<shared_ptr<process>> isAnyoneAvailable() {
-		vector<shared_ptr<process>> availableProcesses;
+	vector<process *> isAnyoneAvailable() {
+		vector<process* > availableProcesses;
 		for (int i = 0; i < numCpus; i++) {
-			if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess()) {
+			if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() && cpuWorkers[i]->getCurrentProcess() != nullptr) {
 				availableProcesses.push_back(cpuWorkers[i]->getCurrentProcess());
 				cpuWorkers[i]->setCurrentProcessNull();
 			}
@@ -133,7 +138,7 @@ public:
 	}
 
 
-    void startProcess(shared_ptr<process> proc) {
+    void startProcess(process* proc) {
         if (!proc) {
             return;
         }

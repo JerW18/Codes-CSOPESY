@@ -4,6 +4,7 @@
 #include "CPUManager.h"
 #include <mutex>
 #include <memory>
+#include "TS.h"
 
 using namespace std;
 
@@ -13,39 +14,32 @@ private:
     CPUManager* cpuManager;
     mutex mtx;
 public:
-    deque<shared_ptr<process>> processes;
-    FCFSScheduler(CPUManager* cpuManager) {
+    TS<process*> *processes;
+    FCFSScheduler(CPUManager* cpuManager, TS<process*> *processes) {
         this->cpuManager = cpuManager;
+		this->processes = processes;
     }
 
-    void addProcess(shared_ptr<process> process) {
-        lock_guard<mutex> lock(mtx);
-        processes.push_back(process);
+    void addProcess(process* process) {
+        processes->push(process);
     }
-    vector<shared_ptr<process>> getReadyQueue() {
-        lock_guard<mutex> lock(mtx);
-        return vector<shared_ptr<process>>(processes.begin(), processes.end());
-    }
+    
     void start() {
-        shared_ptr<process> currentProcess = nullptr;
+        process *currentProcess = nullptr;
         while (true) {
-            if (processes.empty()) {
-                this_thread::sleep_for(chrono::milliseconds(50));
-                continue;
+            vector<process *> toAdd = cpuManager->isAnyoneAvailable();
+            for (auto p : toAdd) {
+                processes->push(p);
             }
-            {
-                lock_guard<mutex> lock(mtx);
-                currentProcess = processes.front();
-                processes.pop_front();
-            }
+            currentProcess = processes->pop();
             cpuManager->startProcess(currentProcess);
             if (currentProcess->getCoreAssigned() == -1) {
-                lock_guard<mutex> lock(mtx);
-                processes.push_front(currentProcess);
+                processes->push(currentProcess);
             }
+
         }
     }
     void getSize() {
-        cout << processes.size() << endl;
+        cout << processes->size() << endl;
     }
 };

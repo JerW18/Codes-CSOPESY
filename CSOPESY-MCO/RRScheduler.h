@@ -1,83 +1,44 @@
-#include <condition_variable> // Add this for condition variable
+#include "CPUManager.h"
+#include <queue>
+#include <mutex>
+#include "TS.h"
 
 class RRScheduler {
 private:
     CPUManager* cpuManager;
     mutex mtx;
-    condition_variable cv; // Condition variable to notify when a new process is added
-    deque<shared_ptr<process>> processes;
+    
 
 public:
-    RRScheduler(CPUManager* cpuManager) : cpuManager(cpuManager) {}
-
-    void addProcess(shared_ptr<process> process) {
-        {
-            lock_guard<mutex> lock(mtx);
-            processes.push_back(process);
-        }
-        cv.notify_all();
+    TS<process *>* processes;
+    RRScheduler(CPUManager* cpuManager, TS<process* >* processes) {
+        this->cpuManager = cpuManager;
+        this->processes = processes;
     }
 
-    vector<shared_ptr<process>> getReadyQueue() {
-        lock_guard<mutex> lock(mtx);
-        return vector<shared_ptr<process>>(processes.begin(), processes.end());
+    void addProcess(process * process) {
+        processes->push(process);
     }
+
+    
 
     void start() {
-        shared_ptr<process> currentProcess = nullptr;
+        process * currentProcess = nullptr;
         while (true) {
-
-            {
-                vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
-                for (auto& p : toAdd) {
-                    addProcess(p);
-					//cout << "Process added by CPUManager" << endl;
+                vector<process *> toAdd = cpuManager->isAnyoneAvailable();
+                for (auto p : toAdd) {
+					processes->push(p);
                 }
-            }
-
-            {
-                unique_lock<mutex> lock(mtx);
-                cv.wait(lock, [this] { return !processes.empty(); });
-
-                currentProcess = processes.front();
-                processes.pop_front();
-            }
-            {
-                /*if (processes.empty()) {
-                    this_thread::sleep_for(chrono::milliseconds(50));
-                    continue;
-                }
-                {
-                    lock_guard<mutex> lock(mtx);
-                    currentProcess = processes.front();
-                    processes.pop_front();
-                }*/
-            }
-
-            {
-                /*
-                unique_lock<mutex> lock(mtx);
-                if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes.empty(); })) {
-                    currentProcess = processes.front();
-                    processes.pop_front();
-                }
-                else {
-                    continue;
-                }*/
-            }
-
+            currentProcess = processes->pop();
             cpuManager->startProcess(currentProcess);
-
-            if (currentProcess!=nullptr && currentProcess->getCoreAssigned() == -1) {
-                lock_guard<mutex> lock(mtx);
-                processes.push_front(currentProcess);
-                cv.notify_all();
+            if (currentProcess->getCoreAssigned() == -1) {
+                processes->push(currentProcess);
             }
+
         }
     }
 
     void getSize() {
-        lock_guard<mutex> lock(mtx);
-        cout << "Queue size: " << processes.size() << endl;
+        cout << processes->size() << endl;
     }
 };

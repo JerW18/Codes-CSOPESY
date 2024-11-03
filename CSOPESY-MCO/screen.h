@@ -10,6 +10,7 @@
 #include "timeStamp.h"
 #include "global.h"
 #include <mutex>
+#include "TS.h"
 typedef unsigned long long ull;
 
 using namespace std;
@@ -105,13 +106,16 @@ public:
 class screenManager {
 private:
     ull maxId = 0;
-    shared_ptr<process> currentProcess = nullptr;
+    process * currentProcess = nullptr;
     mutex* m;
+	TS<process *>* schedulerQueue;
 public:
-    vector<shared_ptr<process>> processes;
+    vector<process *> processes;
     bool inScreen = false;
 
-    screenManager(mutex* mutexPtr) : m(mutexPtr) {}
+    screenManager(mutex* mutexPtr, TS<process *>* schedulerQueue) : m(mutexPtr) {
+		this->schedulerQueue = schedulerQueue;
+    }
 
     void printProcess() {
         for (auto& x : this->processes) {
@@ -119,16 +123,22 @@ public:
         }
     }
     void addProcess(string processName, ull totalInstructions) {
-        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
-        currentProcess = processes.back();
+        // Create a new process and add it to the processes vector
+        process* newProcess = new process(processName, maxId++, totalInstructions);
+        processes.push_back(newProcess);
+        schedulerQueue->push(newProcess); // Add to scheduler queue (assuming schedulerQueue accepts raw pointers)
+        //cout << "Process " << newProcess->getProcessName() << " added with ID " << newProcess->getId() << endl;
     }
 
-	void addProcessManually(string processName, ull totalInstructions) {
-		processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
-		currentProcess = processes.back();
-		inScreen = true;
-		showProcess();
-	}
+    void addProcessManually(string processName, ull totalInstructions) {
+        // Create a new process, add it to the processes vector, and set it as the current process
+        process* newProcess = new process(processName, maxId++, totalInstructions);
+        processes.push_back(newProcess);
+        currentProcess = newProcess;
+        inScreen = true;
+        showProcess();
+    }
+
 
     ull getProcessCount() {
         return processes.size();

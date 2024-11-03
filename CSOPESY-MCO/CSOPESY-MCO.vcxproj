@@ -145,6 +145,7 @@
     <ClInclude Include="RRScheduler.h" />
     <ClInclude Include="screen.h" />
     <ClInclude Include="timeStamp.h" />
+    <ClInclude Include="TS.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

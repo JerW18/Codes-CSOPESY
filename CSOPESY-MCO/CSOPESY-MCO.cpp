@@ -13,18 +13,22 @@
 #include "FCFSScheduler.h"
 #include "RRScheduler.h"
 #include <mutex>
+#include "TS.h"
 
 typedef unsigned long long ull;
 using namespace std;
 
 mutex mtx;
-screenManager sm = screenManager(&mtx);
+
 global g;
 thread schedulerThread;
 CPUManager* cpuManager;
 RRScheduler* rrScheduler;
 FCFSScheduler* fcfsScheduler;
 thread processThread;
+TS<process *> schedulerQueue;
+screenManager sm = screenManager(&mtx, &schedulerQueue);
+
 
 bool inScreen = false;
 bool initialized = false; 
@@ -132,14 +136,14 @@ void initialize() {
 
 
         if (schedulerType == "fcfs") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			fcfsScheduler = new FCFSScheduler(cpuManager);
+            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, &schedulerQueue);
+			fcfsScheduler = new FCFSScheduler(cpuManager, &schedulerQueue);
             schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
 			schedulerThread.detach();
         }
         else if (schedulerType == "rr") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			rrScheduler = new RRScheduler(cpuManager);
+            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, &schedulerQueue);
+			rrScheduler = new RRScheduler(cpuManager, &schedulerQueue);
             schedulerThread = thread(&RRScheduler::start, rrScheduler);
             schedulerThread.detach();
         }
@@ -179,6 +183,7 @@ void schedStartThread() {
 
     while (makeProcess) {
         std::unique_lock<std::mutex> lock(mtx);
+        
         i = sm.getProcessCount();
         if (firstProcess) {
             this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
@@ -254,18 +259,12 @@ void report() {
     reportFile << endl;
     reportFile << "Ready Processes:" << endl;
 
-    vector<shared_ptr<process>> readyQueue;
-    if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-        readyQueue = fcfsScheduler->getReadyQueue();
-    }
-    else if (schedulerType == "rr" && rrScheduler != nullptr) {
-        readyQueue = rrScheduler->getReadyQueue();
-    }
-
-    for (auto& screen : readyQueue) {
-        if (!screen->isFinished()) {
+    cout << "Ready Processes (Not in Queue Order):" << endl;
+    for (auto& screen : sm.processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
             reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Ready "
+                << screen->getDateOfBirth() << ") Core: None"
+                << " Ready "
                 << screen->getInstructionIndex() << " / "
                 << screen->getTotalInstructions() << endl;
         }
@@ -325,7 +324,7 @@ void screens(const string& option, const string& name) {
         ull instructions = randomInsLength();
         sm.addProcessManually(name, instructions);
 
-        shared_ptr<process> newProcess = sm.processes.back();
+        process * newProcess = sm.processes.back();
 
         if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
             fcfsScheduler->addProcess(newProcess);
