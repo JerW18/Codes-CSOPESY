@@ -252,8 +252,19 @@ void report() {
     }
 
     reportFile << endl;
-    reportFile << "Ready Processes:" << endl;
 
+    reportFile << "Ready Processes (Not in Queue Order):" << endl;
+    for (auto& screen : sm.processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Core: None"
+                << " Ready "
+                << screen->getInstructionIndex() << " / "
+                << screen->getTotalInstructions() << endl;
+        }
+    }
+
+    /*reportFile << "Ready Processes:" << endl;
     vector<shared_ptr<process>> readyQueue;
     if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
         readyQueue = fcfsScheduler->getReadyQueue();
@@ -269,7 +280,7 @@ void report() {
                 << screen->getInstructionIndex() << " / "
                 << screen->getTotalInstructions() << endl;
         }
-    }
+    }*/
 
 
     reportFile << endl;
@@ -363,7 +374,7 @@ void screens(const string& option, const string& name) {
         cout << endl;
 
         cout << "Ready Processes (Not in Queue Order):" << endl;
-        /*for (auto& screen : sm.processes) {
+        for (auto& screen : sm.processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: None"
@@ -371,9 +382,9 @@ void screens(const string& option, const string& name) {
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << endl;
             }
-        }*/
+        }
 
-        vector<shared_ptr<process>> readyQueue;
+        /*vector<shared_ptr<process>> readyQueue;
         if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
             readyQueue = fcfsScheduler->getReadyQueue();
         }
@@ -388,7 +399,7 @@ void screens(const string& option, const string& name) {
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << endl;
             }
-        }
+        }*/
 
         cout << endl;
         cout << "Finished Processes:" << endl;
