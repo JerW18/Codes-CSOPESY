@@ -252,7 +252,6 @@ void report() {
     }
 
     reportFile << endl;
-
     reportFile << "Ready Processes (Not in Queue Order):" << endl;
     for (auto& screen : sm.processes) {
         if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
@@ -263,25 +262,6 @@ void report() {
                 << screen->getTotalInstructions() << endl;
         }
     }
-
-    /*reportFile << "Ready Processes:" << endl;
-    vector<shared_ptr<process>> readyQueue;
-    if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-        readyQueue = fcfsScheduler->getReadyQueue();
-    }
-    else if (schedulerType == "rr" && rrScheduler != nullptr) {
-        readyQueue = rrScheduler->getReadyQueue();
-    }
-
-    for (auto& screen : readyQueue) {
-        if (!screen->isFinished()) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Ready "
-                << screen->getInstructionIndex() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }*/
-
 
     reportFile << endl;
     reportFile << "Finished Processes:" << endl;
@@ -383,23 +363,6 @@ void screens(const string& option, const string& name) {
                     << screen->getTotalInstructions() << endl;
             }
         }
-
-        /*vector<shared_ptr<process>> readyQueue;
-        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-            readyQueue = fcfsScheduler->getReadyQueue();
-        }
-        else if (schedulerType == "rr" && rrScheduler != nullptr) {
-            readyQueue = rrScheduler->getReadyQueue();
-        }
-
-        for (auto& screen : readyQueue) {
-            if (!screen->isFinished()) {
-                cout << screen->getProcessName() << " ("
-                    << screen->getDateOfBirth() << ") Ready "
-                    << screen->getInstructionIndex() << " / "
-                    << screen->getTotalInstructions() << endl;
-            }
-        }*/
 
         cout << endl;
         cout << "Finished Processes:" << endl;

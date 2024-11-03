@@ -30,27 +30,6 @@ public:
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
-				//cout << "Process added by CPUManager" << endl;
-            }
-
-            /*{
-                unique_lock<mutex> lock(mtx);
-                cv.wait(lock, [this] { return !processes.empty(); });
-
-                currentProcess = processes.front();
-                processes.pop_front();
-            }*/
-                
-            {
-                /*if (processes.empty()) {
-                    this_thread::sleep_for(chrono::milliseconds(50));
-                    continue;
-                }
-                {
-                    lock_guard<mutex> lock(mtx);
-                    currentProcess = processes.front();
-                    processes.pop_front();
-                }*/
             }
 
             {

@@ -31,7 +31,6 @@ private:
 
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        //lock_guard<mutex> lock(mtx);
 
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
@@ -40,12 +39,10 @@ private:
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
-						//lock_guard<mutex> lock(mtx);
                         available = true;
                         currentProcess = nullptr;
                     }
                     else {
-                        //lock_guard<mutex> lock(mtx);
                         currentProcess->assignCore(-1);
                         available = true;
                     }
@@ -53,10 +50,7 @@ private:
                 }
                 else if (schedulerType == "fcfs") {
                     
-
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        //lock_guard<mutex> lock(mtx);
-
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         this_thread::sleep_for(chrono::milliseconds(100));
