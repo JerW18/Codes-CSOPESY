@@ -116,6 +116,7 @@ public:
 	
 
 	vector<shared_ptr<process>> isAnyoneAvailable() {
+		lock_guard<mutex> lock(mtx);
 		vector<shared_ptr<process>> availableProcesses;
 		for (int i = 0; i < numCpus; i++) {
 			if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess()) {
