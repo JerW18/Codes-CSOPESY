@@ -23,19 +23,20 @@ private:
     void run() {
         int instructionsExecuted = 0;
         while (true) {
+            
+            lock_guard<mutex> lock(mtx);
             if (!available && currentProcess != nullptr) {
                 instructionsExecuted = 0;
                 if (schedulerType == "rr") {
-                    
 
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        lock_guard<mutex> lock(mtx);
+                        //lock_guard<mutex> lock(mtx);
 
-                        this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
+                        this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
-                        this_thread::sleep_for(chrono::milliseconds(1000));
+                        this_thread::sleep_for(chrono::milliseconds(100));
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
@@ -45,9 +46,8 @@ private:
                     }
                     else {
                         //lock_guard<mutex> lock(mtx);
-
-                        available = true;
                         currentProcess->assignCore(-1);
+                        available = true;
                     }
 
                 }
@@ -55,7 +55,7 @@ private:
                     
 
                     while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        lock_guard<mutex> lock(mtx);
+                        //lock_guard<mutex> lock(mtx);
 
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
@@ -65,6 +65,7 @@ private:
                     currentProcess = nullptr;
                 }
             }
+			this_thread::sleep_for(chrono::milliseconds(100));
         }
     }
 

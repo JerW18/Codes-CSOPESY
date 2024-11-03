@@ -31,23 +31,47 @@ public:
                 vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
                 for (auto& p : toAdd) {
                     addProcess(p);
+					//cout << "Process added by CPUManager" << endl;
                 }
             }
 
             {
                 unique_lock<mutex> lock(mtx);
-                cv.wait(lock, [this] { return !processes.empty(); }); // Wait for a process to be added
-
+                cv.wait(lock, [this] { return !processes.empty(); });
 
                 currentProcess = processes.front();
                 processes.pop_front();
             }
+            {
+                /*if (processes.empty()) {
+                    this_thread::sleep_for(chrono::milliseconds(50));
+                    continue;
+                }
+                {
+                    lock_guard<mutex> lock(mtx);
+                    currentProcess = processes.front();
+                    processes.pop_front();
+                }*/
+            }
+
+            {
+                /*
+                unique_lock<mutex> lock(mtx);
+                if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes.empty(); })) {
+                    currentProcess = processes.front();
+                    processes.pop_front();
+                }
+                else {
+                    continue;
+                }*/
+            }
 
             cpuManager->startProcess(currentProcess);
 
-            if (currentProcess->getCoreAssigned() == -1) {
+            if (currentProcess!=nullptr && currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
                 processes.push_front(currentProcess);
+                cv.notify_all();
             }
         }
     }
