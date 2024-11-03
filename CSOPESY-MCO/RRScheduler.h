@@ -15,7 +15,7 @@ public:
             lock_guard<mutex> lock(mtx);
             processes.push_back(process);
         }
-        cv.notify_one();
+        cv.notify_all();
     }
 
     vector<shared_ptr<process>> getReadyQueue() {

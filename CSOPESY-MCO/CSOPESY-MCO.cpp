@@ -361,23 +361,34 @@ void screens(const string& option, const string& name) {
         }
 
         cout << endl;
-        cout << "Ready Processes:" << endl;
-        vector<shared_ptr<process>> readyQueue;
-        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-            readyQueue = fcfsScheduler->getReadyQueue();
-        }
-        else if (schedulerType == "rr" && rrScheduler != nullptr) {
-            readyQueue = rrScheduler->getReadyQueue();
-        }
-
-        for (auto& screen : readyQueue) {
-            if (!screen->isFinished()) {
+        cout << "Ready Processes (Not in Queue Order):" << endl;
+        for (auto& screen : sm.processes) {
+            if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
                 cout << screen->getProcessName() << " ("
-                    << screen->getDateOfBirth() << ") Ready "
+                    << screen->getDateOfBirth() << ") Core: None"
+                    << " Ready "
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << endl;
             }
         }
+        //vector<shared_ptr<process>> readyQueue;
+        //if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
+        //    readyQueue = fcfsScheduler->getReadyQueue();
+        //}
+        //else if (schedulerType == "rr" && rrScheduler != nullptr) {
+        //    readyQueue = rrScheduler->getReadyQueue();
+        //}
+
+        //for (auto& screen : readyQueue) {
+        //    if (!screen->isFinished()) {
+        //        cout << screen->getProcessName() << " ("
+        //           << screen->getDateOfBirth() << ") Ready "
+        //            << screen->getInstructionIndex() << " / "
+         //           << screen->getTotalInstructions() << endl;
+         //   }
+        //}
+
+
 
         cout << endl;
         cout << "Finished Processes:" << endl;
