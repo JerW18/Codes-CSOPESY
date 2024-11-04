@@ -168,7 +168,7 @@ void schedStart() {
         processThread = thread(schedStartThread);
     }
     else {
-        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+        cout << "Error: Scheduler not initialized or is already running.\n" << endl;
     }
 }
 
