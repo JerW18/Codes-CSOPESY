@@ -22,11 +22,13 @@ private:
     ull instructionIndex = 0;
     ull totalInstructions = 0;
     timeStamp dateOfBirth;
-    vector<pair<int, string>> inputHistory;
     int coreAssigned = -1;
+    ull memoryRequired = 0;
+    ull pages = 0;
+	ull memoryAssigned = 0;
+	//ull assignedPages = 0;
 
 public:
-
     string getProcessName() {
         return this->processName;
     }
@@ -45,35 +47,21 @@ public:
     int getCoreAssigned() {
         return this->coreAssigned;
     }
+	ull getMemoryRequired() {
+		return this->memoryRequired;
+	}
+    ull getMemoryAssigned() {
+		return this->memoryAssigned;
+    }
 
     void incrementInstructionIndex() {
         this->instructionIndex++;
-    }
-
-    void addInstructionToHistory(int state, string instruction) {
-        if(state == 0) {
-            this->inputHistory.push_back(make_pair(state, instruction));
-        }
-        else {
-            this->inputHistory.push_back(make_pair(state, instruction));
-        }
     }
 
     void printIntstructionIndex() {
         cout << "\nCurrent Instruction Line: " << this->instructionIndex << endl;
         cout << "Total Instruction Lines: " << this->totalInstructions << endl;
     }                
-
-    void printInputHistory() {
-        for (auto& x : this->inputHistory) {
-            if(x.first == 0) {
-                cout << "<History> Command: " << x.second << endl;
-            }
-            else {
-                cout << "<History> Invalid Command: " << x.second << endl;
-            }
-        }
-    }
 
     bool isFinished() {
         return instructionIndex >= totalInstructions;
@@ -82,6 +70,22 @@ public:
     void assignCore(int core) {
         this->coreAssigned = core;
     }
+    
+	void assignMemory(ull memory) {
+		this->memoryAssigned = memory;
+	}
+
+	void assignPages(ull pages) {
+		this->pages = pages;
+	}
+
+	void assignMemoryRequired(ull memory) {
+		this->memoryRequired = memory;
+	}
+
+	void releaseMemory() {
+		this->memoryAssigned = 0;
+	}
 
     process(string processName, ull id, ull totalInstructions) {
         this->processName = processName;
@@ -90,14 +94,24 @@ public:
         this->dateOfBirth = timeStamp();
     }
 
+    process(string processName, ull id, ull totalInstructions, ull memoryRequired) {
+        this->processName = processName;
+        this->id = id;
+        this->totalInstructions = totalInstructions;
+        this->dateOfBirth = timeStamp();
+		this->memoryRequired = memoryRequired;
+    }
+
     process(process &other) {
 		this->processName = other.processName;
 		this->id = other.id;
 		this->instructionIndex = other.instructionIndex;
 		this->totalInstructions = other.totalInstructions;
 		this->dateOfBirth = other.dateOfBirth;
-		this->inputHistory = other.inputHistory;
 		this->coreAssigned = other.coreAssigned;
+		this->memoryAssigned = other.memoryAssigned;
+		this->memoryRequired = other.memoryRequired;
+		this->pages = other.pages;
     }
   
 };
@@ -129,6 +143,19 @@ public:
 		inScreen = true;
 		showProcess();
 	}
+
+    void addProcess(string processName, ull totalInstructions, ull memoryRequired) {
+        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
+        currentProcess = processes.back();
+    }
+
+    void addProcessManually(string processName, ull totalInstructions, ull memoryRequired) {
+        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
+        currentProcess = processes.back();
+        inScreen = true;
+        showProcess();
+    }
+
 
     ull getProcessCount() {
         return processes.size();

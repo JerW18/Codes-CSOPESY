@@ -59,7 +59,9 @@ private:
                     currentProcess = nullptr;
                 }
             }
-			this_thread::sleep_for(chrono::milliseconds(100));
+            else { 
+                this_thread::sleep_for(chrono::milliseconds(100));
+            }
         }
     }
 

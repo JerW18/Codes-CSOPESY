@@ -38,6 +38,29 @@ ull minInstructions = 1000;
 ull maxInstructions = 2000;
 ull delaysPerExec = 0;
 
+ull maxOverallMem = 16384;
+ull memPerFrame = 16;
+ull maxMemPerProcess = 4096;
+ull minMemPerProcess = 4096;
+ull memPerProc = 4096;
+
+ull totalFrames = maxOverallMem / memPerFrame;
+bool useFlat = maxOverallMem == memPerFrame;
+/*
+mem-per-frame 
+The size of memory in KB per frame. This is also the memory size per page. 
+The total number of frames is equal to max-overall-mem / mem-per-frame. 
+If max-overall-mem = mem-per-frame, then the emulator will use a flat memory allocator.
+
+min-mem-per-proc / max-mem-per-proc
+Memory required for each process 
+Let P be the number of pages required by a process 
+and M is the rolled value between min-mem-per-proc and max-mem-proc. 
+P can be computed as M/ mem-per-frame.
+
+*/
+
+
 string trim(const string& str) {
     size_t start = str.find_first_not_of(" \t\"");
     size_t end = str.find_last_not_of(" \t\"");
@@ -117,10 +140,64 @@ void readConfig(const string& filename) {
                     delaysPerExec = 0;
                 }
             }
+            else if (key == "max-overaall-mem") {
+				maxOverallMem = stoull(value);
+				if (maxOverallMem < 2 || maxOverallMem > 4294967296ULL) {
+					cout << "Error: max-overall-mem must be between 1 and 2^32. Using default value of 16384.\n" << endl;
+					maxOverallMem = 16384;
+				}
+            }
+            else if (key == "mem-per-frame") {
+				memPerFrame = stoull(value);
+				if (memPerFrame < 2 || memPerFrame > 4294967296ULL) {
+					cout << "Error: mem-per-frame must be between 1 and 2^32. Using default value of 16.\n" << endl;
+					memPerFrame = 16;
+				}
+			}
+			else if (key == "max-mem-per-proc") {
+				maxMemPerProcess = stoull(value);
+                if (maxMemPerProcess < 2 || maxMemPerProcess > 4294967296ULL) {
+                    cout << "Error: max-mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+                    maxMemPerProcess = 4096;
+                }
+            }
+            else if (key == "min-mem-per-proc") {
+				minMemPerProcess = stoull(value);
+                if (minMemPerProcess < 2 || minMemPerProcess > 4294967296ULL) {
+					cout << "Error: min-mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+					minMemPerProcess = 4096;
+                }
+            }
+            else if (key == "mem-per-proc") {
+                memPerProc = stoull(value);
+                if (memPerProc < 2 || memPerProc > 4294967296ULL) {
+                    cout << "Error: mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+                    memPerProc = 4096;
+                }
+            }
+            totalFrames = maxOverallMem / memPerFrame;
+            useFlat = maxOverallMem == memPerFrame;
         }
     }
-
     configFile.close();
+}
+
+void displayConfig() {
+	cout << "num-cpu: " << numCPU << endl;
+	cout << "scheduler: " << schedulerType << endl;
+	cout << "quantum-cycles: " << quantumCycles << endl;
+	cout << "batch-process-freq: " << batchProcessFreq << endl;
+	cout << "min-ins: " << minInstructions << endl;
+	cout << "max-ins: " << maxInstructions << endl;
+	cout << "delays-per-exec: " << delaysPerExec << endl;
+	cout << "max-overall-mem: " << maxOverallMem << endl;
+	cout << "mem-per-frame: " << memPerFrame << endl;
+	cout << "max-mem-per-proc: " << maxMemPerProcess << endl;
+	cout << "min-mem-per-proc: " << minMemPerProcess << endl;
+	cout << "mem-per-proc: " << memPerProc << endl;
+	cout << "total-frames: " << totalFrames << endl; 
+    cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n" << endl;
+
 }
 
 
@@ -168,7 +245,7 @@ void schedStart() {
         processThread = thread(schedStartThread);
     }
     else {
-        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+        cout << "Error: Scheduler not initialized or running already. Use 'initialize' command first.\n" << endl;
     }
 }
 
@@ -176,6 +253,7 @@ bool firstProcess = true;
 void schedStartThread() {
     ull i = sm.getProcessCount();
     ull numIns = 0;
+	ull memoryReq = 0;
 
     while (makeProcess) {
         std::unique_lock<std::mutex> lock(mtx);
@@ -185,10 +263,10 @@ void schedStartThread() {
             firstProcess = false;
         }
         numIns = randomInsLength();
-
+        memoryReq = memPerProc;
 		
 		string processName = "p_" + to_string(i);
-        sm.addProcess(processName, numIns);
+        sm.addProcess(processName, numIns, memoryReq);
         if (schedulerType == "fcfs") {
             fcfsScheduler->addProcess(sm.processes.back());
         }
@@ -347,7 +425,8 @@ void screens(const string& option, const string& name) {
                     << screen->getDateOfBirth() << ") Core: "
                     << screen->getCoreAssigned() << " Running "
                     << screen->getInstructionIndex() << " / "
-                    << screen->getTotalInstructions() << endl;
+					<< screen->getTotalInstructions() << " Memory: "
+                    << screen->getMemoryRequired() << " / " << endl;
             }
         }
 
@@ -360,7 +439,8 @@ void screens(const string& option, const string& name) {
                     << screen->getDateOfBirth() << ") Core: None"
                     << " Ready "
                     << screen->getInstructionIndex() << " / "
-                    << screen->getTotalInstructions() << endl;
+                    << screen->getTotalInstructions() << " Memory: "
+                    << screen->getMemoryRequired() << " / " << endl;
             }
         }
 
@@ -412,6 +492,9 @@ void exitProgram() {
 
 
 map<string, void (*)()> commands = {
+    {"sst", schedStart},
+	{"ssp", schedStop},
+    {"display-config", displayConfig},
     {"report-util", report},
 	{"scheduler-test", schedStart},
     {"scheduler-stop", schedStop},
