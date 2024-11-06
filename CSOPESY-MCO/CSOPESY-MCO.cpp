@@ -208,7 +208,7 @@ void initialize() {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator);
         processScheduler = new Scheduler(cpuManager);
         // Initialize Memory Allocator with maxOverallMem and frame size
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);

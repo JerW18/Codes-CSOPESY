@@ -93,16 +93,21 @@ public:
     }
 
     // Deallocate memory at a specified pointer
+    // Deallocate memory at a specified pointer
     void deallocate(void* ptr, size_t size) {
-        char* p = static_cast<char*>(ptr);
-        size_t index = p - memory.data();
-        size_t framesToDeallocate = (size + frameSize - 1) / frameSize;
+		size_t index = static_cast<char*>(ptr) - &memory[0];
+		size_t frames = (size + frameSize - 1) / frameSize;
 
-        for (size_t i = 0; i < framesToDeallocate; i++) {
-            allocationMap[index / frameSize + i] = false;
-            //cout << "Deallocated frame " << (index / frameSize + i) << endl;
+        for (size_t i = 0; i < frames; i++) {
+
+			if (allocationMap[(index / frameSize) + i]) {
+				allocationMap[(index / frameSize) + i] = false;
+			}
         }
+
+
     }
+
 
 	// Get memory allocation map
 	vector<bool> getAllocationMap() {

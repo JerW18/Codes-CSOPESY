@@ -6,6 +6,7 @@
 #include "timeStamp.h"
 #include <fstream>
 #include <memory>
+#include "MemoryAllocator.h"
 
 using namespace std;
 
@@ -19,7 +20,7 @@ private:
     ull delaysPerExec;
     string schedulerType;
     mutex mtx;
-
+    MemoryAllocator& memoryAllocator;
     void run() {
         int instructionsExecuted = 0;
         while (true) {
@@ -39,11 +40,18 @@ private:
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+						//if (currentProcess->getMemoryAddress() != nullptr)
+                            //memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
                         available = true;
                         currentProcess = nullptr;
+                        
                     }
+
                     else {
+
                         currentProcess->assignCore(-1);
+                        //if (currentProcess->getMemoryAddress() != nullptr)
+                            //memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
                         available = true;
                     }
 
@@ -55,8 +63,11 @@ private:
                         currentProcess->incrementInstructionIndex();
                         this_thread::sleep_for(chrono::milliseconds(100));
                     }
+                   
                     available = true;
+                    memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
                     currentProcess = nullptr;
+                    
                 }
             }
             else { 
@@ -66,10 +77,10 @@ private:
     }
 
 public:
-    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType)
-        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType) {
+    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator)
+        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType), memoryAllocator(allocator) {
         workerThread = thread(&CPUWorker::run, this);
-		workerThread.detach();
+        workerThread.detach();
     }
 
     ~CPUWorker() {
@@ -109,9 +120,9 @@ private:
 
 
 public:
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType) : numCpus(numCpus) {
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator) : numCpus(numCpus) {
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType));
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator));
         }
     }
 
