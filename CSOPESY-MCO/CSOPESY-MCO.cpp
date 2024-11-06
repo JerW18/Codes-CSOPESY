@@ -10,9 +10,9 @@
 #include "screen.h"
 #include "global.h"
 #include "CPUManager.h"
-#include "FCFSScheduler.h"
-#include "RRScheduler.h"
+#include "Scheduler.h"
 #include <mutex>
+
 
 typedef unsigned long long ull;
 using namespace std;
@@ -22,8 +22,9 @@ screenManager sm = screenManager(&mtx);
 global g;
 thread schedulerThread;
 CPUManager* cpuManager;
-RRScheduler* rrScheduler;
-FCFSScheduler* fcfsScheduler;
+//Sheduler* rrScheduler;
+//Sheduler* fcfsScheduler;
+Scheduler* processScheduler;
 thread processThread;
 
 bool inScreen = false;
@@ -206,26 +207,30 @@ void initialize() {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
+        processScheduler = new Scheduler(cpuManager);
 
+        schedulerThread = (schedulerType == "fcfs")
+            ? thread(&Scheduler::starFCFS, processScheduler)
+            : (schedulerType == "rr")
+            ? thread(&Scheduler::startRR, processScheduler)
+            : thread();
+		schedulerThread.detach();
+        initialized = true;
 
-        if (schedulerType == "fcfs") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			fcfsScheduler = new FCFSScheduler(cpuManager);
-            schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
+        /*if (schedulerType == "fcfs") {
+            schedulerThread = thread(&Scheduler::starFCFS, processScheduler);
 			schedulerThread.detach();
         }
         else if (schedulerType == "rr") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			rrScheduler = new RRScheduler(cpuManager);
-            schedulerThread = thread(&RRScheduler::start, rrScheduler);
+            schedulerThread = thread(&Scheduler::startRR, processScheduler);
             schedulerThread.detach();
         }
         else {
             cout << "Error: Unknown scheduler type specified in config file.\n" << endl;
             return;
-        }
+        }*/
 
-        initialized = true;  
     }
     else {
         cout << "'initialize' command has already been executed.\n" << endl;
@@ -267,12 +272,13 @@ void schedStartThread() {
 		
 		string processName = "p_" + to_string(i);
         sm.addProcess(processName, numIns, memoryReq);
-        if (schedulerType == "fcfs") {
-            fcfsScheduler->addProcess(sm.processes.back());
+        processScheduler->addProcess(sm.processes.back());
+        /*if (schedulerType == "fcfs") {
+            processScheduler->addProcess(sm.processes.back());
         }
         else if (schedulerType == "rr") {
-            rrScheduler->addProcess(sm.processes.back());
-        }
+            processScheduler->addProcess(sm.processes.back());
+        }*/
         lock.unlock();
         if(!firstProcess)
             this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
@@ -395,16 +401,17 @@ void screens(const string& option, const string& name) {
         sm.addProcessManually(name, instructions);
 
         shared_ptr<process> newProcess = sm.processes.back();
+        processScheduler->addProcess(newProcess);
 
-        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-            fcfsScheduler->addProcess(newProcess);
+        /*if (schedulerType == "fcfs" && processScheduler != nullptr) {
+            processScheduler->addProcess(newProcess);
         }
-        else if (schedulerType == "rr" && rrScheduler != nullptr) {
-            rrScheduler->addProcess(newProcess);
+        else if (schedulerType == "rr" && processScheduler != nullptr) {
+            processScheduler->addProcess(newProcess);
         }
         else {
             cout << "Error: Scheduler not initialized or unknown scheduler type.\n" << endl;
-        }
+        }*/
 
         inScreen = true;
 		lock.unlock();

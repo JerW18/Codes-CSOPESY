@@ -1,14 +1,25 @@
-#include <condition_variable> // Add this for condition variable
+#pragma once
+#include <queue>
+#include "screen.h"
+#include "CPUManager.h"
+#include <mutex>
+#include <memory>
+#include <condition_variable> 
 
-class RRScheduler {
+using namespace std;
+
+class Scheduler
+{
 private:
     CPUManager* cpuManager;
     mutex mtx;
-    condition_variable cv; // Condition variable to notify when a new process is added
-    deque<shared_ptr<process>> processes;
+    condition_variable cv;
 
 public:
-    RRScheduler(CPUManager* cpuManager) : cpuManager(cpuManager) {}
+    deque<shared_ptr<process>> processes;
+    Scheduler(CPUManager* cpuManager) {
+        this->cpuManager = cpuManager;
+    }
 
     void addProcess(shared_ptr<process> process) {
         {
@@ -17,13 +28,32 @@ public:
         }
         cv.notify_all();
     }
-
-    vector<shared_ptr<process>> getReadyQueue() {
+    deque<shared_ptr<process>> getReadyQueue() {
         lock_guard<mutex> lock(mtx);
-        return vector<shared_ptr<process>>(processes.begin(), processes.end());
+        return processes;
     }
 
-    void start() {
+    void starFCFS() {
+        shared_ptr<process> currentProcess = nullptr;
+        while (true) {
+            if (processes.empty()) {
+                this_thread::sleep_for(chrono::milliseconds(50));
+                continue;
+            }
+            {
+                lock_guard<mutex> lock(mtx);
+                currentProcess = processes.front();
+                processes.pop_front();
+            }
+            cpuManager->startProcess(currentProcess);
+            if (currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes.push_front(currentProcess);
+            }
+        }
+    }
+
+    void startRR() {
         shared_ptr<process> currentProcess = nullptr;
         while (true) {
 
@@ -54,7 +84,6 @@ public:
     }
 
     void getSize() {
-        lock_guard<mutex> lock(mtx);
-        cout << "Queue size: " << processes.size() << endl;
+        cout << processes.size() << endl;
     }
 };

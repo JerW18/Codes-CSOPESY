@@ -38,13 +38,10 @@
     <ClInclude Include="global.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FCFSScheduler.h">
+    <ClInclude Include="Scheduler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CPUManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RRScheduler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
