@@ -12,13 +12,13 @@
 #include "CPUManager.h"
 #include "Scheduler.h"
 #include <mutex>
-
+#include "MemoryAllocator.h"
 
 typedef unsigned long long ull;
 using namespace std;
 
 mutex mtx;
-screenManager sm = screenManager(&mtx);
+screenManager* sm;
 global g;
 thread schedulerThread;
 CPUManager* cpuManager;
@@ -26,6 +26,7 @@ CPUManager* cpuManager;
 //Sheduler* fcfsScheduler;
 Scheduler* processScheduler;
 thread processThread;
+unique_ptr<MemoryAllocator> memoryAllocator;
 
 bool inScreen = false;
 bool initialized = false; 
@@ -209,6 +210,12 @@ void initialize() {
 		readConfig("config.txt");
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
         processScheduler = new Scheduler(cpuManager);
+        // Initialize Memory Allocator with maxOverallMem and frame size
+        memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
+
+        // Initialize screenManager with MemoryAllocator
+        sm = new screenManager(&mtx, *memoryAllocator);
+
 
         schedulerThread = (schedulerType == "fcfs")
             ? thread(&Scheduler::starFCFS, processScheduler)
@@ -256,35 +263,23 @@ void schedStart() {
 
 bool firstProcess = true;
 void schedStartThread() {
-    ull i = sm.getProcessCount();
-    ull numIns = 0;
-	ull memoryReq = 0;
-
     while (makeProcess) {
-        std::unique_lock<std::mutex> lock(mtx);
-        i = sm.getProcessCount();
-        if (firstProcess) {
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
-            firstProcess = false;
-        }
-        numIns = randomInsLength();
-        memoryReq = memPerProc;
-		
-		string processName = "p_" + to_string(i);
-        sm.addProcess(processName, numIns, memoryReq);
-        processScheduler->addProcess(sm.processes.back());
-        /*if (schedulerType == "fcfs") {
-            processScheduler->addProcess(sm.processes.back());
-        }
-        else if (schedulerType == "rr") {
-            processScheduler->addProcess(sm.processes.back());
-        }*/
-        lock.unlock();
-        if(!firstProcess)
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
-    }
+        unique_lock<mutex> lock(mtx);
+        ull i = sm->getProcessCount();
+        ull numIns = randomInsLength();
+        ull memoryReq = memPerProc;
 
+        string processName = "p_" + to_string(i);
+
+        // Allocate memory and add process with FirstFit strategy
+        sm->addProcess(processName, numIns, memoryReq, "FirstFit");
+        processScheduler->addProcess(sm->processes.back());
+
+        lock.unlock();
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+    }
 }
+
 
 
 void schedStop() {
@@ -309,10 +304,10 @@ void schedStop() {
 void report() {
     if (!initialized) {
         cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
-		return;
+        return;
     }
 
-    std::unique_lock<std::mutex> lock(mtx);
+    unique_lock<mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
         cout << "Error: Could not open report file." << endl;
@@ -320,48 +315,8 @@ void report() {
     }
 
     reportFile << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
-    reportFile << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
-    reportFile << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
-    reportFile << "----------------------------------" << endl;
-    reportFile << "Running Processes:" << endl;
-
-    for (auto& screen : sm.processes) {
-        if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Core: "
-                << screen->getCoreAssigned() << " Running "
-                << screen->getInstructionIndex() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << endl;
-    reportFile << "Ready Processes (Not in Queue Order):" << endl;
-    for (auto& screen : sm.processes) {
-        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Core: None"
-                << " Ready "
-                << screen->getInstructionIndex() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << endl;
-    reportFile << "Finished Processes:" << endl;
-
-    for (auto& screen : sm.processes) {
-        if (screen->isFinished()) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Finished "
-                << screen->getTotalInstructions() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << "----------------------------------" << endl;
+   
     reportFile.close();
-    lock.unlock();
 
     cout << "Report generated.\n" << endl;
 }
@@ -375,12 +330,12 @@ void screens(const string& option, const string& name) {
 
     if (option == "-r") {
         std::unique_lock<std::mutex> lock(mtx);
-        for (auto screen : sm.processes) {
+        for (auto screen : sm->processes) {
             if (screen->getProcessName() == name) {
                 ull id = screen->getId();
                 cout << "Reattaching to screen session: " << name << endl;
                 inScreen = true;
-                sm.reattatchProcess(name, id);
+                sm->reattachProcess(name, id);
                 return;
             }
         }
@@ -389,7 +344,7 @@ void screens(const string& option, const string& name) {
     }
     else if (option == "-s") {
         std::unique_lock<std::mutex> lock(mtx);
-        for (auto screen : sm.processes) {
+        for (auto screen : sm->processes) {
             if (screen->getProcessName() == name) {
                 cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it.\n" << endl;
                 return;
@@ -398,9 +353,9 @@ void screens(const string& option, const string& name) {
         cout << "Starting new terminal session: " << name << endl;
 
         ull instructions = randomInsLength();
-        sm.addProcessManually(name, instructions);
+        sm->addProcessManually(name, instructions, memPerProc, "FirstFit");
 
-        shared_ptr<process> newProcess = sm.processes.back();
+        shared_ptr<process> newProcess = sm->processes.back();
         processScheduler->addProcess(newProcess);
 
         /*if (schedulerType == "fcfs" && processScheduler != nullptr) {
@@ -426,7 +381,7 @@ void screens(const string& option, const string& name) {
         cout << "----------------------------------" << endl;
 
         cout << "Running Processes:" << endl;
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
@@ -440,7 +395,7 @@ void screens(const string& option, const string& name) {
         cout << endl;
 
         cout << "Ready Processes (Not in Queue Order):" << endl;
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: None"
@@ -454,7 +409,7 @@ void screens(const string& option, const string& name) {
         cout << endl;
         cout << "Finished Processes:" << endl;
 
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Finished "
@@ -462,6 +417,70 @@ void screens(const string& option, const string& name) {
                     << screen->getTotalInstructions() << endl;
             }
         }
+
+		cout << "----------------------------------" << endl;
+
+        // Number of processes in memory
+        int processCount = 0;
+        for (const auto& process : sm->processes) {
+            if (process->getMemoryAddress() != nullptr) processCount++;
+        }
+        cout << "Number of processes in memory: " << processCount << "\n";
+
+        // Total external fragmentation
+        size_t totalFragmentation = 0;
+        bool inFreeBlock = false;
+        size_t currentFreeBlockSize = 0;
+
+        for (bool allocated : memoryAllocator->getAllocationMap()) {
+            if (!allocated) {
+                if (!inFreeBlock) {
+                    inFreeBlock = true;
+                    currentFreeBlockSize = memoryAllocator->getFrameSize();
+                }
+                else {
+                    currentFreeBlockSize += memoryAllocator->getFrameSize();
+                }
+            }
+            else if (inFreeBlock) {
+                inFreeBlock = false;
+                totalFragmentation += currentFreeBlockSize;
+            }
+        }
+        if (inFreeBlock) {
+            totalFragmentation += currentFreeBlockSize;
+        }
+        cout << "Total external fragmentation in KB: " << totalFragmentation / 1024 << "\n";
+
+        // ASCII memory layout with boundaries
+        cout << "---end---- = " << maxOverallMem << "\n";
+        size_t address = maxOverallMem;
+        bool previousAllocated = false;
+
+        for (int i = memoryAllocator->getAllocationMap().size() - 1; i >= 0; --i) {
+            address -= memoryAllocator->getFrameSize();
+
+            if (memoryAllocator->getAllocationMap()[i]) {
+                // Find the process that owns this memory frame
+                for (const auto& process : sm->processes) {
+                    if (process->getMemoryAddress() == &(memoryAllocator->getMemory())[i * memoryAllocator->getFrameSize()]) {
+                        if (!previousAllocated) {
+                            cout << address + memoryAllocator->getFrameSize() << "\n"; // Upper limit of the process
+                        }
+                        cout << address << " " << process->getProcessName() << "\n";
+                        previousAllocated = true;
+                        break;
+                    }
+                }
+            }
+            else {
+                if (previousAllocated) {
+                    cout << address + memoryAllocator->getFrameSize() << " [Free]\n"; // Lower limit after the last process block
+                }
+                previousAllocated = false;
+            }
+        }
+
 
         cout << "----------------------------------\n" << endl;
         lock.unlock();

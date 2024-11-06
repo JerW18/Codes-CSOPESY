@@ -10,6 +10,9 @@
 #include "timeStamp.h"
 #include "global.h"
 #include <mutex>
+#include "MemoryAllocator.h"
+
+
 typedef unsigned long long ull;
 
 using namespace std;
@@ -25,7 +28,8 @@ private:
     int coreAssigned = -1;
     ull memoryRequired = 0;
     ull pages = 0;
-	ull memoryAssigned = 0;
+	//ull memoryAssigned = 0;
+	void* memoryAddress = nullptr;
 	//ull assignedPages = 0;
 
 public:
@@ -50,10 +54,7 @@ public:
 	ull getMemoryRequired() {
 		return this->memoryRequired;
 	}
-    ull getMemoryAssigned() {
-		return this->memoryAssigned;
-    }
-
+   
     void incrementInstructionIndex() {
         this->instructionIndex++;
     }
@@ -71,8 +72,14 @@ public:
         this->coreAssigned = core;
     }
     
-	void assignMemory(ull memory) {
-		this->memoryAssigned = memory;
+	void assignMemory(void *address, ull size) {
+		this->memoryAddress = address;
+		this->memoryRequired = size;
+
+	}
+
+	void releaseMemory() {
+		this->memoryAddress = nullptr;
 	}
 
 	void assignPages(ull pages) {
@@ -83,9 +90,14 @@ public:
 		this->memoryRequired = memory;
 	}
 
-	void releaseMemory() {
-		this->memoryAssigned = 0;
+	void assignMemoryAddress(void* address) {
+		this->memoryAddress = address;
 	}
+
+	void* getMemoryAddress() {
+		return this->memoryAddress;
+	}
+
 
     process(string processName, ull id, ull totalInstructions) {
         this->processName = processName;
@@ -94,25 +106,8 @@ public:
         this->dateOfBirth = timeStamp();
     }
 
-    process(string processName, ull id, ull totalInstructions, ull memoryRequired) {
-        this->processName = processName;
-        this->id = id;
-        this->totalInstructions = totalInstructions;
-        this->dateOfBirth = timeStamp();
-		this->memoryRequired = memoryRequired;
-    }
-
-    process(process &other) {
-		this->processName = other.processName;
-		this->id = other.id;
-		this->instructionIndex = other.instructionIndex;
-		this->totalInstructions = other.totalInstructions;
-		this->dateOfBirth = other.dateOfBirth;
-		this->coreAssigned = other.coreAssigned;
-		this->memoryAssigned = other.memoryAssigned;
-		this->memoryRequired = other.memoryRequired;
-		this->pages = other.pages;
-    }
+    process(string processName, ull id, ull totalInstructions, ull memoryRequired)
+        : processName(processName), id(id), totalInstructions(totalInstructions), dateOfBirth(timeStamp()), memoryRequired(memoryRequired) {}
   
 };
 
@@ -121,51 +116,76 @@ private:
     ull maxId = 0;
     shared_ptr<process> currentProcess = nullptr;
     mutex* m;
+    MemoryAllocator& allocator;
 public:
     vector<shared_ptr<process>> processes;
     bool inScreen = false;
 
-    screenManager(mutex* mutexPtr) : m(mutexPtr) {}
+    screenManager(mutex* mutexPtr, MemoryAllocator& allocator)
+        : m(mutexPtr), allocator(allocator) {}
 
     void printProcess() {
         for (auto& x : this->processes) {
             cout << "Process: " << to_string(x->getId()) << endl;
         }
     }
-    void addProcess(string processName, ull totalInstructions) {
-        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
-        currentProcess = processes.back();
+    void addProcess(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
+        void* allocatedMemory = allocator.allocate(memoryRequired, strategy);
+        if (allocatedMemory) {
+            auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
+            proc->assignMemory(allocatedMemory, memoryRequired);
+            processes.push_back(proc);
+            currentProcess = processes.back();
+        }
+        else {
+            //cout << "Failed to allocate memory for process " << processName << endl;
+        }
     }
 
-	void addProcessManually(string processName, ull totalInstructions) {
-		processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions));
-		currentProcess = processes.back();
-		inScreen = true;
-		showProcess();
-	}
-
-    void addProcess(string processName, ull totalInstructions, ull memoryRequired) {
-        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
-        currentProcess = processes.back();
+    void addProcessManually(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
+        void* allocatedMemory = allocator.allocate(memoryRequired, strategy);
+        if (allocatedMemory) {
+            auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
+            proc->assignMemory(allocatedMemory, memoryRequired);
+            processes.push_back(proc);
+            currentProcess = proc;
+            inScreen = true;
+            showProcess();
+        }
+        else {
+            //cout << "Failed to manually allocate memory for process " << processName << endl;
+        }
     }
-
-    void addProcessManually(string processName, ull totalInstructions, ull memoryRequired) {
-        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
-        currentProcess = processes.back();
-        inScreen = true;
-        showProcess();
-    }
-
 
     ull getProcessCount() {
         return processes.size();
     }
 
     void removeProcess(string processName) {
-        for (ull i = 0; i < processes.size(); i++) {
-            if (this->processes[i]->getProcessName() == processName) {
-                this->processes.erase(this->processes.begin() + i);
-                cout << "Process " << processName << " removed." << endl;
+        for (auto it = processes.begin(); it != processes.end(); ++it) {
+            if ((*it)->getProcessName() == processName) {
+                allocator.deallocate((*it)->getMemoryAddress(), (*it)->getMemoryRequired());
+                processes.erase(it);
+                //cout << "Process " << processName << " removed and memory deallocated." << endl;
+                return;
+            }
+        }
+        cout << "Process " << processName << " not found." << endl;
+    }
+
+    void reattachProcess(string processName, ull id) {
+        for (const auto& x : this->processes) {
+            if (x->getProcessName() == processName && x->getId() == id) {
+                this->currentProcess = x;
+                inScreen = true;
+
+                // Display additional information about the process, including memory details
+                cout << "Reattaching to process: " << x->getProcessName() << endl;
+                cout << "Process ID: " << x->getId() << endl;
+                cout << "Memory Required: " << x->getMemoryRequired() << " bytes" << endl;
+                cout << "Memory Address: " << x->getMemoryAddress() << endl;
+
+                showProcess();
                 return;
             }
         }
@@ -179,18 +199,6 @@ public:
         }
     }
 
-    void reattatchProcess(string processName, ull id) {
-        for (auto &x : this->processes) {
-            if (x->getProcessName() == processName && x->getId() == id) {
-                this->currentProcess = x;
-                inScreen = true;
-
-                showProcess();
-                return;
-            }
-        }
-        cout << "Screen " << processName << " not found." << endl;
-    }
 
     void showProcess() {
         if (this->currentProcess == nullptr) {return;}

@@ -140,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CPUManager.h" />
+    <ClInclude Include="MemoryAllocator.h" />
     <ClInclude Include="Scheduler.h" />
     <ClInclude Include="global.h" />
     <ClInclude Include="screen.h" />
