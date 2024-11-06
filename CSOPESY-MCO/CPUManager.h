@@ -115,10 +115,10 @@ private:
     vector<CPUWorker*> cpuWorkers;
     int numCpus;
     mutex mtx;
-
+    MemoryAllocator& allocator;
 
 public:
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator) : numCpus(numCpus) {
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator) : numCpus(numCpus), allocator(allocator) {
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator));
         }
@@ -139,17 +139,34 @@ public:
 	}
 
 
-    void startProcess(shared_ptr<process> proc) {
+    int startProcess(shared_ptr<process> proc) {
         if (!proc) {
-            return;
+            return -10;
         }
-		lock_guard<mutex> lock(mtx);
+        lock_guard<mutex> lock(mtx);
+        if (!proc->hasMemoryAssigned()) {
+            void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit");
+            if (allocatedMemory) {
+                proc->assignMemory(allocatedMemory, proc->getMemoryRequired());
+                //cout << "Process " << proc->getProcessName() << " has been allocated memory" << endl;
+				proc->setMemoryAssigned(true);
+            }
+            else {
+                //cout << "Failed to allocate memory for process " << proc->getProcessName() << endl;
+                return 1;
+            }
+        }
+        else {
+			//cout << "Process " << proc->getProcessName() << " already has memory assigned" << endl;
+        }
+        
+		//cout << "Attempting to assign process to core..." << endl;
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
-                proc->assignCore(i); // Assign the process to this idle core
+                proc->assignCore(i);
                 cpuWorkers[i]->assignScreen(proc);
-                //cout << "Process " << proc->getId() << " assigned to idle core " << i << endl;
-                return;
+				//cout << "Process " << proc->getProcessName() << " has been assigned to core " << i << endl;
+                return 0;
             }
         }
     }

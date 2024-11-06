@@ -5,6 +5,7 @@
 #include <mutex>
 #include <memory>
 #include <condition_variable> 
+#include "MemoryAllocator.h"
 
 using namespace std;
 
@@ -14,10 +15,11 @@ private:
     CPUManager* cpuManager;
     mutex mtx;
     condition_variable cv;
-
+    MemoryAllocator& allocator;
 public:
     deque<shared_ptr<process>> processes;
-    Scheduler(CPUManager* cpuManager) {
+	Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator) : allocator(allocator)
+    {
         this->cpuManager = cpuManager;
     }
 
@@ -35,6 +37,7 @@ public:
 
     void starFCFS() {
         shared_ptr<process> currentProcess = nullptr;
+		int response = 0;
         while (true) {
             if (processes.empty()) {
                 this_thread::sleep_for(chrono::milliseconds(100));
@@ -45,23 +48,29 @@ public:
                 currentProcess = processes.front();
                 processes.pop_front();
             }
-            cpuManager->startProcess(currentProcess);
-            if (currentProcess->getCoreAssigned() == -1) {
+            response = cpuManager->startProcess(currentProcess);
+			if (response == 1) {
+				lock_guard<mutex> lock(mtx);
+				processes.push_back(currentProcess);
+			}
+            if (response != 1 && currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
                 processes.push_front(currentProcess);
             }
+			response = 3;
         }
     }
 
     void startRR() {
         shared_ptr<process> currentProcess = nullptr;
+        int response = 0;
         while (true) {
 
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
             }
-
+            
             {
                 unique_lock<mutex> lock(mtx);
                 if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes.empty(); })) {
@@ -72,17 +81,27 @@ public:
                     continue;
                 }
             }
+			//cout << currentProcess->getProcessName() << endl;
+            response = cpuManager->startProcess(currentProcess);
 
-            cpuManager->startProcess(currentProcess);
+			if (response == 1) {
+				lock_guard<mutex> lock(mtx);
+				processes.push_back(currentProcess);
+			}
 
-            if (currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+            if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
                 processes.push_front(currentProcess);
                 cv.notify_all();
             }
+            response = 3;
         }
     }
-
+	void printQueue() {
+		for (int i = 0; i < processes.size(); i++) {
+			cout << i << " is " << processes[i]->getProcessName() << endl;
+		}
+	}
     void getSize() {
         cout << processes.size() << endl;
     }

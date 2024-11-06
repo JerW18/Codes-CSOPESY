@@ -210,7 +210,7 @@ void initialize() {
 		readConfig("config.txt");
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator);
-        processScheduler = new Scheduler(cpuManager);
+        processScheduler = new Scheduler(cpuManager, *memoryAllocator);
 
         // Initialize screenManager with MemoryAllocator
         sm = new screenManager(&mtx, *memoryAllocator);
@@ -275,7 +275,8 @@ void schedStartThread() {
         string processName = "p_" + to_string(i);
 
         // Allocate memory and add process with FirstFit strategy
-        sm->addProcess(processName, numIns, memoryReq, "FirstFit");
+        //sm->addProcess(processName, numIns, memoryReq, "FirstFit");
+		sm->addProcess(processName, numIns, memoryReq);
         processScheduler->addProcess(sm->processes.back());
 
         lock.unlock();

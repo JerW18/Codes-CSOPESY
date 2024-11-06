@@ -63,7 +63,6 @@ public:
 		cout << "Allocation map size should be: " << allocationMap.size() << endl;
     }
 
-    // FirstFit allocation
     void* allocateFirstFit(size_t size) {
         size_t framesNeeded = (size + frameSize - 1) / frameSize;
 
@@ -87,7 +86,6 @@ public:
         return nullptr;
     }
 
-    // BestFit allocation
     void* allocateBestFit(size_t size) {
         int framesNeeded = (size + frameSize - 1) / frameSize;
         size_t bestStart = allocationMap.size();
@@ -121,11 +119,8 @@ public:
         return nullptr;
     }
 
-    // Deallocate memory at a specified pointer
     void deallocate(void* ptr, size_t size) {
-		
 		void* temp = &memory[0];
-		cout << temp << endl;
 		size_t index = static_cast<char*>(ptr) - temp;
         if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
             cout << "Error: Invalid memory address for deallocation." << endl;
@@ -143,17 +138,14 @@ public:
     }
 
 
-	// Get memory allocation map
 	vector<bool> getAllocationMap() {
 		return allocationMap;
 	}
 
-    // get frame size
 	size_t getFrameSize() {
 		return frameSize;
 	}
 
-   // get memory
     vector<char> getMemory() {
 		return memory;
     }

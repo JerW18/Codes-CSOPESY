@@ -31,6 +31,7 @@ private:
 	//ull memoryAssigned = 0;
 	void* memoryAddress = nullptr;
 	//ull assignedPages = 0;
+	bool hasMemory = false;
 
 public:
     string getProcessName() {
@@ -53,6 +54,13 @@ public:
     }
 	ull getMemoryRequired() {
 		return this->memoryRequired;
+	}
+	
+	bool hasMemoryAssigned() {
+		return this->hasMemory;
+	}
+	void setMemoryAssigned(bool hasMemory) {
+		this->hasMemory = hasMemory;
 	}
    
     void incrementInstructionIndex() {
@@ -129,6 +137,20 @@ public:
             cout << "Process: " << to_string(x->getId()) << endl;
         }
     }
+
+    void addProcess(string processName, ull totalInstructions, ull memoryRequired) {
+        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
+        currentProcess = processes.back();
+    }
+    void addProcessManually(string processName, ull totalInstructions, ull memoryRequired) {
+        processes.emplace_back(make_shared<process>(processName, maxId++, totalInstructions, memoryRequired));
+        currentProcess = processes.back();
+        inScreen = true;
+        showProcess();
+    }
+
+
+
     void addProcess(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
         void* allocatedMemory = allocator.allocate(memoryRequired, strategy);
         if (allocatedMemory) {
