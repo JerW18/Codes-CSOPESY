@@ -14,15 +14,17 @@ private:
     vector<bool> allocationMap;
     size_t frameSize;
     size_t totalFrames;
-
+	size_t totalMemorySize;
 public:
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
-        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize, false),
-        frameSize(frameSize), totalFrames(totalMemorySize / frameSize) {}
+        : memory(totalMemorySize, '.'), allocationMap(totalMemorySize / frameSize, false),
+        frameSize(frameSize), totalFrames(totalMemorySize / frameSize), totalMemorySize(totalMemorySize) {}
 
     void* allocate(size_t size, string strategy) {
         if (strategy == "FirstFit") {
-            return allocateFirstFit(size);
+			void* temp = allocateFirstFit(size);
+			//cout << "B " << temp << endl;
+            return temp;
         }
         else if (strategy == "BestFit") {
             return allocateBestFit(size);
@@ -33,11 +35,39 @@ public:
         }
     }
 
+	void printMemory() {
+		for (size_t i = 0; i < memory.size(); i++) {
+			cout << memory[i];
+		}
+		cout << endl;
+	}
+	void printMemoryLocations() {
+		for (size_t i = 0; i < memory.size(); i++) {
+			cout << &memory[i] << endl;
+		}
+		cout << endl;
+	}
+    void printMemoryEnds() {
+		cout << "Memory starts at: " << (void*) & memory[0] << endl;
+		cout << "Memory ends at: " << (void*) & memory[memory.size() - 1] << endl;
+    }
+	void printAllocationMap() {
+		for (size_t i = 0; i < allocationMap.size(); i++) {
+			cout << allocationMap[i];
+		}
+		cout << endl;
+	}
+    void printOtherStuff() {
+        cout << "Total memory size: " << totalMemorySize << ", Frame size: " << frameSize << endl;
+        cout << "Memory vector size should be: " << memory.size() << endl;
+		cout << "Allocation map size should be: " << allocationMap.size() << endl;
+    }
+
     // FirstFit allocation
     void* allocateFirstFit(size_t size) {
         size_t framesNeeded = (size + frameSize - 1) / frameSize;
 
-        for (size_t i = 0; i <= allocationMap.size() - framesNeeded; i++) {
+        for (size_t i = 0; i+framesNeeded <= allocationMap.size(); i++) {
             bool found = true;
             for (size_t j = 0; j < framesNeeded; j++) {
                 if (allocationMap[i + j]) {
@@ -49,7 +79,7 @@ public:
                 for (size_t j = 0; j < framesNeeded; j++) {
                     allocationMap[i + j] = true;
                 }
-                //cout << "Allocated " << framesNeeded * frameSize << " bytes at frame " << i << " using FirstFit strategy" << endl;
+                
                 return &memory[i * frameSize];
             }
         }
@@ -84,18 +114,23 @@ public:
             for (size_t j = 0; j < framesNeeded; j++) {
                 allocationMap[bestStart + j] = true;
             }
-            //cout << "Allocated " << framesNeeded * frameSize << " bytes at frame " << bestStart << " using BestFit strategy" << endl;
+            cout << "Allocated " << framesNeeded * frameSize << " bytes at frame " << bestStart << " using BestFit strategy" << endl;
             return &memory[bestStart * frameSize];
         }
 
-        //cout << "No available block found with BestFit strategy" << endl;
         return nullptr;
     }
 
     // Deallocate memory at a specified pointer
-    // Deallocate memory at a specified pointer
     void deallocate(void* ptr, size_t size) {
-		size_t index = static_cast<char*>(ptr) - &memory[0];
+		
+		void* temp = &memory[0];
+		cout << temp << endl;
+		size_t index = static_cast<char*>(ptr) - temp;
+        if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
+            cout << "Error: Invalid memory address for deallocation." << endl;
+            return;
+        }
 		size_t frames = (size + frameSize - 1) / frameSize;
 
         for (size_t i = 0; i < frames; i++) {
@@ -104,7 +139,6 @@ public:
 				allocationMap[(index / frameSize) + i] = false;
 			}
         }
-
 
     }
 

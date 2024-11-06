@@ -20,12 +20,12 @@ private:
     ull delaysPerExec;
     string schedulerType;
     mutex mtx;
-    MemoryAllocator& memoryAllocator;
+    MemoryAllocator &memoryAllocator;
     void run() {
         int instructionsExecuted = 0;
         while (true) {
             
-            lock_guard<mutex> lock(mtx);
+            //lock_guard<mutex> lock(mtx);
             if (!available && currentProcess != nullptr) {
                 instructionsExecuted = 0;
                 if (schedulerType == "rr") {
@@ -40,18 +40,16 @@ private:
                     }
 
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
-						//if (currentProcess->getMemoryAddress() != nullptr)
-                            //memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
-                        available = true;
+                        if (currentProcess->getMemoryAddress() != nullptr) {
+                            memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                        }
+                        this->available = true;
                         currentProcess = nullptr;
                         
                     }
 
                     else {
-
                         currentProcess->assignCore(-1);
-                        //if (currentProcess->getMemoryAddress() != nullptr)
-                            //memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
                         available = true;
                     }
 

@@ -208,10 +208,9 @@ void initialize() {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
+        memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator);
         processScheduler = new Scheduler(cpuManager);
-        // Initialize Memory Allocator with maxOverallMem and frame size
-        memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
 
         // Initialize screenManager with MemoryAllocator
         sm = new screenManager(&mtx, *memoryAllocator);
@@ -247,6 +246,10 @@ void initialize() {
 ull randomInsLength() {
     return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
 }
+ull randomMemLength() {
+	return rand() % (maxMemPerProcess - minMemPerProcess + 1) + minMemPerProcess;
+}
+
 
 void schedStartThread();
 void schedStop();
@@ -267,7 +270,7 @@ void schedStartThread() {
         unique_lock<mutex> lock(mtx);
         ull i = sm->getProcessCount();
         ull numIns = randomInsLength();
-        ull memoryReq = memPerProc;
+		ull memoryReq = memPerProc; //randomMemLength();
 
         string processName = "p_" + to_string(i);
 
