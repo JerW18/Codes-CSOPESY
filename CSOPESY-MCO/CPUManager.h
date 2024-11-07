@@ -102,6 +102,7 @@ private:
     void logMemoryState(int quantumCycle) {
 
         string lastPrintedProcessName = "";
+		bool changedProcess = false;
 
         std::string timestamp = getCurrentTimestamp();
         std::stringstream filename;
@@ -125,19 +126,24 @@ private:
 
         outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n";  
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
-            // Print start address of the current process
-            if (!it->isFree && it->processName != lastPrintedProcessName) {
-                outFile << it->endAddress << "\n";  // Current process start address
-                outFile << it->processName << "\n";   // Current process name
-                outFile << it->startAddress << "\n";
-                // Print the end address of the next process
-                auto nextIt = std::next(it);
-                if (nextIt != memoryState.rend() && !nextIt->isFree) {
-                    outFile << nextIt->startAddress << "\n";  // Next process end address
+            // Print start address of the current process if it's not free
+            if (!it->isFree) {
+                if (it->processName != lastPrintedProcessName) {
+                    // If the process name changes, print start address
+                    if (changedProcess) {
+                        outFile << it->startAddress << "\n";
+                    }
+                    outFile << it->endAddress << "\n";
+                    outFile << it->processName << "\n";
+                    lastPrintedProcessName = it->processName;
+                    changedProcess = true;
                 }
-
-                lastPrintedProcessName = it->processName;  // Update the last printed process name
             }
+        }
+
+        if (changedProcess && !memoryState.empty()) {
+            // Ensure you print the start address of the last process
+            outFile << memoryState.front().startAddress << "\n";  // Print start address of the last process in the memoryState
         }
         outFile << "----start---- = 0\n";
 
