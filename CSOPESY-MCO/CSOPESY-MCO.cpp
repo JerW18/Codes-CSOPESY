@@ -391,8 +391,10 @@ void screens(const string& option, const string& name) {
                     << screen->getDateOfBirth() << ") Core: "
                     << screen->getCoreAssigned() << " Running "
                     << screen->getInstructionIndex() << " / "
-					<< screen->getTotalInstructions() << " Memory: "
-                    << screen->getMemoryRequired() << " / " << endl;
+                    << screen->getTotalInstructions() << " Memory: "
+                    << screen->getMemoryRequired() << " / " <<
+                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                    endl;
             }
         }
 
@@ -406,7 +408,9 @@ void screens(const string& option, const string& name) {
                     << " Ready "
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << " Memory: "
-                    << screen->getMemoryRequired() << " / " << endl;
+                    << screen->getMemoryRequired() << " / " <<
+                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                    endl;
             }
         }
 
@@ -418,16 +422,19 @@ void screens(const string& option, const string& name) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Finished "
                     << screen->getTotalInstructions() << " / "
-                    << screen->getTotalInstructions() << endl;
+                    << screen->getTotalInstructions() << " Memory used: "
+                    << screen->getMemoryRequired() <<
+                    endl;
             }
         }
 
-		cout << "----------------------------------" << endl;
+        cout << "----------------------------------" << endl;
 
         // Number of processes in memory
         int processCount = 0;
         for (const auto& process : sm->processes) {
-            if (process->getMemoryAddress() != nullptr) processCount++;
+            //if (process->getMemoryAddress() != nullptr) processCount++;
+            if (process->hasMemoryAssigned()) processCount++;
         }
         cout << "Number of processes in memory: " << processCount << "\n";
 
@@ -485,6 +492,7 @@ void screens(const string& option, const string& name) {
             }
         }
 
+        //memoryAllocator->printAllocationMap();
 
         cout << "----------------------------------\n" << endl;
         lock.unlock();

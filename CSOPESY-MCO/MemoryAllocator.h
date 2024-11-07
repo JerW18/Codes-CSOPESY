@@ -5,8 +5,15 @@
 #include <string>
 #include <vector>
 #include "timeStamp.h"
+using ull = unsigned long long;
 
 using namespace std;
+struct MemoryBlock {
+    bool isFree;
+    size_t startAddress;
+    size_t endAddress;
+    int processID;  // or -1 if it's free
+};
 
 class MemoryAllocator {
 private:
@@ -15,22 +22,25 @@ private:
     size_t frameSize;
     size_t totalFrames;
 	size_t totalMemorySize;
+	int numOfProcesses = 0;
 public:
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
-        : memory(totalMemorySize, '.'), allocationMap(totalMemorySize / frameSize, false),
-        frameSize(frameSize), totalFrames(totalMemorySize / frameSize), totalMemorySize(totalMemorySize) {}
+        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize, false),
+        frameSize(frameSize), totalFrames(totalMemorySize / frameSize), totalMemorySize(totalMemorySize),
+		numOfProcesses(0)
+    {}
 
     void* allocate(size_t size, string strategy) {
         if (strategy == "FirstFit") {
 			void* temp = allocateFirstFit(size);
-			//cout << "B " << temp << endl;
+			numOfProcesses++;
             return temp;
         }
         else if (strategy == "BestFit") {
+            numOfProcesses++;
             return allocateBestFit(size);
         }
         else {
-            //cout << "Invalid allocation strategy" << endl;
             return nullptr;
         }
     }
@@ -134,6 +144,7 @@ public:
 				allocationMap[(index / frameSize) + i] = false;
 			}
         }
+        numOfProcesses--;
 
     }
 
@@ -149,6 +160,66 @@ public:
     vector<char> getMemory() {
 		return memory;
     }
-	
+
+	ull getTotalMemorySize() {
+		return memory.size();
+	}
+
+	int getNumOfProcesses() {
+		return numOfProcesses;
+	}
+
+    ull getExternalFragmentation() {
+		ull externalFragmentation = 0;
+		bool inBlock = false;
+		ull blockSize = 0;
+		for (size_t i = 0; i < allocationMap.size(); i++) {
+			if (allocationMap[i]) {
+				if (inBlock) {
+					externalFragmentation += blockSize;
+					blockSize = 0;
+					inBlock = false;
+				}
+			}
+			else {
+				blockSize += frameSize;
+				inBlock = true;
+			}
+		}
+		return externalFragmentation;
+    }
+
+    vector<MemoryBlock> getMemoryState() {
+        vector<MemoryBlock> memoryState;
+        size_t currentAddress = 0;
+        bool inFreeBlock = false;
+        size_t blockStart = 0;
+
+        for (size_t i = 0; i < allocationMap.size(); ++i) {
+            if (allocationMap[i]) {  
+                if (inFreeBlock) {
+                    memoryState.push_back({ true, blockStart, currentAddress - 1, -1 });
+                    inFreeBlock = false;
+                }
+                memoryState.push_back({ false, currentAddress, currentAddress + frameSize - 1, /* processID */ 1 });
+            }
+            else {  
+                if (!inFreeBlock) {
+                    blockStart = currentAddress;
+                    inFreeBlock = true;
+                }
+            }
+            currentAddress += frameSize;
+        }
+
+        if (inFreeBlock) {
+            memoryState.push_back({ true, blockStart, currentAddress - 1, -1 });
+        }
+
+        return memoryState;
+    }
+
+
+
 };
 

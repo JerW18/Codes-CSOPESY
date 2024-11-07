@@ -7,8 +7,13 @@
 #include <fstream>
 #include <memory>
 #include "MemoryAllocator.h"
+#include <iomanip>
+#include <chrono>
+#include <ctime>
+#include <sstream>
 
 using namespace std;
+
 
 class CPUWorker {
 private:
@@ -25,7 +30,7 @@ private:
         int instructionsExecuted = 0;
         while (true) {
             
-            //lock_guard<mutex> lock(mtx);
+            lock_guard<mutex> lock(mtx);
             if (!available && currentProcess != nullptr) {
                 instructionsExecuted = 0;
                 if (schedulerType == "rr") {
@@ -37,11 +42,13 @@ private:
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
                         this_thread::sleep_for(chrono::milliseconds(100));
+						//logMemoryState(instructionsExecuted);
                     }
-
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                         if (currentProcess->getMemoryAddress() != nullptr) {
                             memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                            currentProcess->assignMemoryAddress(nullptr);
+                            currentProcess->setMemoryAssigned(false);
                         }
                         this->available = true;
                         currentProcess = nullptr;
@@ -49,6 +56,11 @@ private:
                     }
 
                     else {
+                        if (currentProcess->getMemoryAddress() != nullptr) {
+                            memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+							currentProcess->assignMemoryAddress(nullptr);
+							currentProcess->setMemoryAssigned(false);
+                        }
                         currentProcess->assignCore(-1);
                         available = true;
                     }
@@ -72,6 +84,55 @@ private:
                 this_thread::sleep_for(chrono::milliseconds(100));
             }
         }
+    }
+    std::string getCurrentTimestamp() {
+        auto now = std::chrono::system_clock::now();
+        std::time_t time = std::chrono::system_clock::to_time_t(now);
+        std::tm localTime;
+
+        localtime_s(&localTime, &time);
+
+        std::stringstream timestamp;
+        timestamp << std::put_time(&localTime, "%m/%d/%Y %I:%M:%S %p");
+        return timestamp.str();
+    }
+
+    void logMemoryState(int quantumCycle) {
+
+        string timestamp = getCurrentTimestamp();
+        stringstream filename;
+        filename << "memory_stamp_" << std::setw(2) << setfill('0') << quantumCycle << ".txt";
+
+        ofstream outFile(filename.str());
+        if (!outFile) {
+            cerr << "Failed to open file for logging memory state." << std::endl;
+            return;
+        }
+
+        int numProcessesInMemory = memoryAllocator.getNumOfProcesses();  
+        int totalExternalFragmentation = memoryAllocator.getExternalFragmentation();  
+        auto memoryState = memoryAllocator.getMemoryState(); 
+
+        outFile << "Timestamp: " << timestamp << "\n";
+        outFile << "Number of processes in memory: " << numProcessesInMemory << "\n";
+        outFile << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
+
+        outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n";  
+        /*for (const auto& block : memoryState) {
+            if (block.isFree) {
+                outFile << block.endAddress << "\n";
+            }
+            else {
+                outFile << block.processID << "\n";
+                outFile << block.endAddress << "\n";
+            }
+        }*/
+		//print memory state basaed on specs
+        //maybe we should implement the cpu counter...
+
+        outFile << "----start---- = 0\n";
+
+        outFile.close();
     }
 
 public:
