@@ -12,27 +12,32 @@ struct MemoryBlock {
     bool isFree;
     size_t startAddress;
     size_t endAddress;
-    int processID;  // or -1 if it's free
+    string processName;  // or empty if it's free
+};
+
+struct AllocationEntry {
+    bool isAllocated = false;
+    string processName = "";
 };
 
 class MemoryAllocator {
 private:
     vector<char> memory;
-    vector<bool> allocationMap;
+    vector<AllocationEntry> allocationMap;
     size_t frameSize;
     size_t totalFrames;
 	size_t totalMemorySize;
 	int numOfProcesses = 0;
 public:
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
-        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize, false),
+        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
         frameSize(frameSize), totalFrames(totalMemorySize / frameSize), totalMemorySize(totalMemorySize),
 		numOfProcesses(0)
     {}
 
-    void* allocate(size_t size, string strategy) {
+    void* allocate(size_t size, string strategy, string processName) {
         if (strategy == "FirstFit") {
-			void* temp = allocateFirstFit(size);
+			void* temp = allocateFirstFit(size, processName);
 			numOfProcesses++;
             return temp;
         }
@@ -63,7 +68,8 @@ public:
     }
 	void printAllocationMap() {
 		for (size_t i = 0; i < allocationMap.size(); i++) {
-			cout << allocationMap[i];
+			cout << allocationMap[i].isAllocated << endl;
+            cout << allocationMap[i].processName;
 		}
 		cout << endl;
 	}
@@ -73,26 +79,30 @@ public:
 		cout << "Allocation map size should be: " << allocationMap.size() << endl;
     }
 
-    void* allocateFirstFit(size_t size) {
+    void* allocateFirstFit(size_t size, string processName) {
         size_t framesNeeded = (size + frameSize - 1) / frameSize;
 
-        for (size_t i = 0; i+framesNeeded <= allocationMap.size(); i++) {
+        for (size_t i = 0; i + framesNeeded <= allocationMap.size(); i++) {
             bool found = true;
             for (size_t j = 0; j < framesNeeded; j++) {
-                if (allocationMap[i + j]) {
+                if (allocationMap[i + j].isAllocated) {  // Check if the frame is already allocated
                     found = false;
                     break;
                 }
             }
             if (found) {
+                // Mark the frames as allocated and assign the process name
                 for (size_t j = 0; j < framesNeeded; j++) {
-                    allocationMap[i + j] = true;
+                    allocationMap[i + j].isAllocated = true;
+                    allocationMap[i + j].processName = processName;  // Store the process name
                 }
-                
-                return &memory[i * frameSize];
+
+                return &memory[i * frameSize];  // Return the starting address of the allocated memory block
             }
         }
-        //cout << "No available block found with FirstFit strategy" << endl;
+
+        // If no available block found
+        // cout << "No available block found with FirstFit strategy" << endl;
         return nullptr;
     }
 
@@ -105,7 +115,7 @@ public:
             size_t start = i;
             size_t blockSize = 0;
 
-            while (i < allocationMap.size() && !allocationMap[i] && blockSize < framesNeeded) {
+            while (i < allocationMap.size() && !allocationMap[i].isAllocated && blockSize < framesNeeded) {
                 blockSize++;
                 i++;
             }
@@ -120,7 +130,7 @@ public:
 
         if (bestStart < allocationMap.size()) {
             for (size_t j = 0; j < framesNeeded; j++) {
-                allocationMap[bestStart + j] = true;
+                allocationMap[bestStart + j].isAllocated = true;
             }
             cout << "Allocated " << framesNeeded * frameSize << " bytes at frame " << bestStart << " using BestFit strategy" << endl;
             return &memory[bestStart * frameSize];
@@ -140,8 +150,8 @@ public:
 
         for (size_t i = 0; i < frames; i++) {
 
-			if (allocationMap[(index / frameSize) + i]) {
-				allocationMap[(index / frameSize) + i] = false;
+			if (allocationMap[(index / frameSize) + i].isAllocated) {
+				allocationMap[(index / frameSize) + i].isAllocated = false;
 			}
         }
         numOfProcesses--;
@@ -150,7 +160,11 @@ public:
 
 
 	vector<bool> getAllocationMap() {
-		return allocationMap;
+        vector<bool> boolMap;
+        for (const auto& entry : allocationMap) {
+            boolMap.push_back(entry.isAllocated);
+        }
+        return boolMap;
 	}
 
 	size_t getFrameSize() {
@@ -174,7 +188,7 @@ public:
 		bool inBlock = false;
 		ull blockSize = 0;
 		for (size_t i = 0; i < allocationMap.size(); i++) {
-			if (allocationMap[i]) {
+			if (allocationMap[i].isAllocated) {
 				if (inBlock) {
 					externalFragmentation += blockSize;
 					blockSize = 0;
@@ -196,12 +210,12 @@ public:
         size_t blockStart = 0;
 
         for (size_t i = 0; i < allocationMap.size(); ++i) {
-            if (allocationMap[i]) {  
+            if (allocationMap[i].isAllocated) {
                 if (inFreeBlock) {
-                    memoryState.push_back({ true, blockStart, currentAddress - 1, -1 });
+                    memoryState.push_back({ true, blockStart, currentAddress - 1, ""});
                     inFreeBlock = false;
                 }
-                memoryState.push_back({ false, currentAddress, currentAddress + frameSize - 1, /* processID */ 1 });
+                memoryState.push_back({ false, currentAddress, currentAddress + frameSize - 1, allocationMap[i].processName });
             }
             else {  
                 if (!inFreeBlock) {
@@ -213,7 +227,7 @@ public:
         }
 
         if (inFreeBlock) {
-            memoryState.push_back({ true, blockStart, currentAddress - 1, -1 });
+            memoryState.push_back({ true, blockStart, currentAddress - 1, ""});
         }
 
         return memoryState;

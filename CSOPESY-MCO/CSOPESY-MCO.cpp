@@ -357,7 +357,7 @@ void screens(const string& option, const string& name) {
         cout << "Starting new terminal session: " << name << endl;
 
         ull instructions = randomInsLength();
-        sm->addProcessManually(name, instructions, memPerProc, "FirstFit");
+        sm->addProcessManually(name, instructions, memPerProc);
 
         shared_ptr<process> newProcess = sm->processes.back();
         processScheduler->addProcess(newProcess);

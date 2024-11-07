@@ -11,6 +11,7 @@
 #include <chrono>
 #include <ctime>
 #include <sstream>
+#include <filesystem>
 
 using namespace std;
 
@@ -27,12 +28,12 @@ private:
     mutex mtx;
     MemoryAllocator &memoryAllocator;
     void run() {
-        int instructionsExecuted = 0;
+		int totalInstructionsExecuted = 0;
         while (true) {
             
             lock_guard<mutex> lock(mtx);
             if (!available && currentProcess != nullptr) {
-                instructionsExecuted = 0;
+                int instructionsExecuted = 0;
                 if (schedulerType == "rr") {
 
                     while (instructionsExecuted < quantumCycles &&
@@ -41,8 +42,9 @@ private:
                         this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                         currentProcess->incrementInstructionIndex();
                         instructionsExecuted++;
+                        totalInstructionsExecuted++;
                         this_thread::sleep_for(chrono::milliseconds(100));
-						//logMemoryState(instructionsExecuted);
+						logMemoryState(totalInstructionsExecuted);
                     }
                     if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                         if (currentProcess->getMemoryAddress() != nullptr) {
@@ -99,13 +101,17 @@ private:
 
     void logMemoryState(int quantumCycle) {
 
-        string timestamp = getCurrentTimestamp();
-        stringstream filename;
-        filename << "memory_stamp_" << std::setw(2) << setfill('0') << quantumCycle << ".txt";
+        string lastPrintedProcessName = "";
 
-        ofstream outFile(filename.str());
+        std::string timestamp = getCurrentTimestamp();
+        std::stringstream filename;
+        filename << "logs\\memory_stamp_" << std::setw(2) << std::setfill('0') << quantumCycle << ".txt";
+
+        std::filesystem::create_directories("logs");
+
+        std::ofstream outFile(filename.str(), std::ofstream::out);
         if (!outFile) {
-            cerr << "Failed to open file for logging memory state." << std::endl;
+            std::cerr << "Failed to open file for logging memory state." << std::endl;
             return;
         }
 
@@ -118,18 +124,21 @@ private:
         outFile << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
 
         outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n";  
-        /*for (const auto& block : memoryState) {
-            if (block.isFree) {
-                outFile << block.endAddress << "\n";
-            }
-            else {
-                outFile << block.processID << "\n";
-                outFile << block.endAddress << "\n";
-            }
-        }*/
-		//print memory state basaed on specs
-        //maybe we should implement the cpu counter...
+        for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
+            // Print start address of the current process
+            if (!it->isFree && it->processName != lastPrintedProcessName) {
+                outFile << it->endAddress << "\n";  // Current process start address
+                outFile << it->processName << "\n";   // Current process name
+                outFile << it->startAddress << "\n";
+                // Print the end address of the next process
+                auto nextIt = std::next(it);
+                if (nextIt != memoryState.rend() && !nextIt->isFree) {
+                    outFile << nextIt->startAddress << "\n";  // Next process end address
+                }
 
+                lastPrintedProcessName = it->processName;  // Update the last printed process name
+            }
+        }
         outFile << "----start---- = 0\n";
 
         outFile.close();
@@ -206,7 +215,7 @@ public:
         }
         lock_guard<mutex> lock(mtx);
         if (!proc->hasMemoryAssigned()) {
-            void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit");
+            void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
             if (allocatedMemory) {
                 proc->assignMemory(allocatedMemory, proc->getMemoryRequired());
                 //cout << "Process " << proc->getProcessName() << " has been allocated memory" << endl;

@@ -151,33 +151,33 @@ public:
 
 
 
-    void addProcess(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
-        void* allocatedMemory = allocator.allocate(memoryRequired, strategy);
-        if (allocatedMemory) {
-            auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
-            proc->assignMemory(allocatedMemory, memoryRequired);
-            processes.push_back(proc);
-            currentProcess = processes.back();
-        }
-        else {
-            //cout << "Failed to allocate memory for process " << processName << endl;
-        }
-    }
+    //void addProcess(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
+    //    void* allocatedMemory = allocator.allocate(memoryRequired, strategy, processName);
+    //    if (allocatedMemory) {
+    //        auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
+    //        proc->assignMemory(allocatedMemory, memoryRequired);
+    //        processes.push_back(proc);
+    //        currentProcess = processes.back();
+    //    }
+    //    else {
+    //        //cout << "Failed to allocate memory for process " << processName << endl;
+    //    }
+    //}
 
-    void addProcessManually(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
-        void* allocatedMemory = allocator.allocate(memoryRequired, strategy);
-        if (allocatedMemory) {
-            auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
-            proc->assignMemory(allocatedMemory, memoryRequired);
-            processes.push_back(proc);
-            currentProcess = proc;
-            inScreen = true;
-            showProcess();
-        }
-        else {
-            //cout << "Failed to manually allocate memory for process " << processName << endl;
-        }
-    }
+    //void addProcessManually(string processName, ull totalInstructions, ull memoryRequired, string strategy) {
+    //    void* allocatedMemory = allocator.allocate(memoryRequired, strategy, processName);
+    //    if (allocatedMemory) {
+    //        auto proc = make_shared<process>(processName, maxId++, totalInstructions, memoryRequired);
+    //        proc->assignMemory(allocatedMemory, memoryRequired);
+    //        processes.push_back(proc);
+    //        currentProcess = proc;
+    //        inScreen = true;
+    //        showProcess();
+    //    }
+    //    else {
+    //        //cout << "Failed to manually allocate memory for process " << processName << endl;
+    //    }
+    //}
 
     ull getProcessCount() {
         return processes.size();
