@@ -58,11 +58,11 @@ private:
                     }
 
                     else {
-                        if (currentProcess->getMemoryAddress() != nullptr) {
+                        /*if (currentProcess->getMemoryAddress() != nullptr) {
                             memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
 							currentProcess->assignMemoryAddress(nullptr);
 							currentProcess->setMemoryAssigned(false);
-                        }
+                        }*/
                         currentProcess->assignCore(-1);
                         available = true;
                     }
@@ -102,6 +102,7 @@ private:
     void logMemoryState(int quantumCycle) {
 
         string lastPrintedProcessName = "";
+        size_t lastEndAddress;
 		bool changedProcess = false;
 
         std::string timestamp = getCurrentTimestamp();
@@ -124,26 +125,30 @@ private:
         outFile << "Number of processes in memory: " << numProcessesInMemory << "\n";
         outFile << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
 
-        outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n";  
+        outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n\n"; 
+        
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
             // Print start address of the current process if it's not free
             if (!it->isFree) {
                 if (it->processName != lastPrintedProcessName) {
+					//cout << "Current process name: " << it->processName << "\n" << "Last printed process name: " << lastPrintedProcessName << endl;
                     // If the process name changes, print start address
                     if (changedProcess) {
-                        outFile << it->startAddress << "\n";
+                        outFile << lastEndAddress << "\n\n";
                     }
                     outFile << it->endAddress << "\n";
                     outFile << it->processName << "\n";
+					
                     lastPrintedProcessName = it->processName;
                     changedProcess = true;
                 }
+                lastEndAddress = it->startAddress;
             }
         }
 
         if (changedProcess && !memoryState.empty()) {
             // Ensure you print the start address of the last process
-            outFile << memoryState.front().startAddress << "\n";  // Print start address of the last process in the memoryState
+            outFile << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
         }
         outFile << "----start---- = 0\n";
 
