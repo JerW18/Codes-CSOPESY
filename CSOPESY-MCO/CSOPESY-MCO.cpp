@@ -429,72 +429,51 @@ void screens(const string& option, const string& name) {
         }
 
         cout << "----------------------------------" << endl;
+        
+		// how to get the memory used by each process
+        string lastPrintedProcessName = "";
+        size_t lastEndAddress;
+        bool changedProcess = false;
 
-        // Number of processes in memory
-        int processCount = 0;
-        for (const auto& process : sm->processes) {
-            //if (process->getMemoryAddress() != nullptr) processCount++;
-            if (process->hasMemoryAssigned()) processCount++;
-        }
-        cout << "Number of processes in memory: " << processCount << "\n";
+		timeStamp t;
 
-        // Total external fragmentation
-        size_t totalFragmentation = 0;
-        bool inFreeBlock = false;
-        size_t currentFreeBlockSize = 0;
+        std::string timestamp = t.getTimeStamp();
 
-        for (bool allocated : memoryAllocator->getAllocationMap()) {
-            if (!allocated) {
-                if (!inFreeBlock) {
-                    inFreeBlock = true;
-                    currentFreeBlockSize = memoryAllocator->getFrameSize();
-                }
-                else {
-                    currentFreeBlockSize += memoryAllocator->getFrameSize();
-                }
-            }
-            else if (inFreeBlock) {
-                inFreeBlock = false;
-                totalFragmentation += currentFreeBlockSize;
-            }
-        }
-        if (inFreeBlock) {
-            totalFragmentation += currentFreeBlockSize;
-        }
-        cout << "Total external fragmentation in KB: " << totalFragmentation / 1024 << "\n";
+        int numProcessesInMemory = memoryAllocator->getNumOfProcesses();
+        int totalExternalFragmentation = memoryAllocator->getExternalFragmentation();
+        auto memoryState = memoryAllocator->getMemoryState();
 
-        // ASCII memory layout with boundaries
-        cout << "---end---- = " << maxOverallMem << "\n";
-        size_t address = maxOverallMem;
-        bool previousAllocated = false;
+        cout << "Timestamp: " << timestamp << "\n";
+        cout << "Number of processes in memory: " << numProcessesInMemory << "\n";
+        cout << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
 
-        for (int i = memoryAllocator->getAllocationMap().size() - 1; i >= 0; --i) {
-            address -= memoryAllocator->getFrameSize();
+        cout << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n";
 
-            if (memoryAllocator->getAllocationMap()[i]) {
-                // Find the process that owns this memory frame
-                for (const auto& process : sm->processes) {
-                    if (process->getMemoryAddress() == &(memoryAllocator->getMemory())[i * memoryAllocator->getFrameSize()]) {
-                        if (!previousAllocated) {
-                            cout << address + memoryAllocator->getFrameSize() << "\n"; // Upper limit of the process
-                        }
-                        cout << address << " " << process->getProcessName() << "\n";
-                        previousAllocated = true;
-                        break;
+        for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
+            // Print start address of the current process if it's not free
+            if (!it->isFree) {
+                if (it->processName != lastPrintedProcessName) {
+                    //cout << "Current process name: " << it->processName << "\n" << "Last printed process name: " << lastPrintedProcessName << endl;
+                    // If the process name changes, print start address
+                    if (changedProcess) {
+                        cout << lastEndAddress << "\n\n";
                     }
+                    cout << it->endAddress << "\n";
+                    cout << it->processName << "\n";
+
+                    lastPrintedProcessName = it->processName;
+                    changedProcess = true;
                 }
-            }
-            else {
-                if (previousAllocated) {
-                    cout << address + memoryAllocator->getFrameSize() << " [Free]\n"; // Lower limit after the last process block
-                }
-                previousAllocated = false;
+                lastEndAddress = it->startAddress;
             }
         }
 
-        //memoryAllocator->printAllocationMap();
+        if (changedProcess && !memoryState.empty()) {
+            // Ensure you print the start address of the last process
+            cout << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
+        }
+        cout << "----start---- = 0\n";
 
-        cout << "----------------------------------\n" << endl;
         lock.unlock();
     }
     else {
