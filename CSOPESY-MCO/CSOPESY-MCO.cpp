@@ -473,7 +473,7 @@ void screens(const string& option, const string& name) {
             cout << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
         }
         cout << "----start---- = 0\n";
-
+		memoryAllocator->printAllocationMap();
         lock.unlock();
     }
     else {

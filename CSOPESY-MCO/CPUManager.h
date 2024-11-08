@@ -27,6 +27,7 @@ private:
     string schedulerType;
     mutex mtx;
     MemoryAllocator &memoryAllocator;
+
     void run() {
 		int totalInstructionsExecuted = 0;
         while (true) {
@@ -128,11 +129,8 @@ private:
         outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n\n"; 
         
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
-            // Print start address of the current process if it's not free
             if (!it->isFree) {
                 if (it->processName != lastPrintedProcessName) {
-					//cout << "Current process name: " << it->processName << "\n" << "Last printed process name: " << lastPrintedProcessName << endl;
-                    // If the process name changes, print start address
                     if (changedProcess) {
                         outFile << lastEndAddress << "\n\n";
                     }
@@ -147,8 +145,7 @@ private:
         }
 
         if (changedProcess && !memoryState.empty()) {
-            // Ensure you print the start address of the last process
-            outFile << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
+            outFile << memoryState.front().startAddress << "\n\n";
         }
         outFile << "----start---- = 0\n";
 
@@ -162,16 +159,6 @@ private:
         bool changedProcess = false;
 
         std::string timestamp = getCurrentTimestamp();
-        //std::stringstream filename;
-        //filename << "logs\\memory_stamp_" << std::setw(2) << std::setfill('0') << quantumCycle << ".txt";
-
-        //std::filesystem::create_directories("logs");
-
-        //std::ofstream outFile(filename.str(), std::ofstream::out);
-        //if (!outFile) {
-          //  std::cerr << "Failed to open file for logging memory state." << std::endl;
-            //return;
-        //}
 
         int numProcessesInMemory = memoryAllocator.getNumOfProcesses();
         int totalExternalFragmentation = memoryAllocator.getExternalFragmentation();
@@ -184,11 +171,8 @@ private:
         cout << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n\n\n";
 
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
-            // Print start address of the current process if it's not free
             if (!it->isFree) {
                 if (it->processName != lastPrintedProcessName) {
-                    //cout << "Current process name: " << it->processName << "\n" << "Last printed process name: " << lastPrintedProcessName << endl;
-                    // If the process name changes, print start address
                     if (changedProcess) {
                         cout << lastEndAddress << "\n\n\n";
                     }
@@ -203,8 +187,7 @@ private:
         }
 
         if (changedProcess && !memoryState.empty()) {
-            // Ensure you print the start address of the last process
-            cout << memoryState.front().startAddress << "\n\n\n";  // Print start address of the last process in the memoryState
+            cout << memoryState.front().startAddress << "\n\n\n";  
         }
         cout << "----start---- = 0\n";
     }
@@ -283,24 +266,18 @@ public:
             void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
             if (allocatedMemory) {
                 proc->assignMemory(allocatedMemory, proc->getMemoryRequired());
-                //cout << "Process " << proc->getProcessName() << " has been allocated memory" << endl;
 				proc->setMemoryAssigned(true);
             }
             else {
-                //cout << "Failed to allocate memory for process " << proc->getProcessName() << endl;
                 return 1;
             }
         }
-        else {
-			//cout << "Process " << proc->getProcessName() << " already has memory assigned" << endl;
-        }
         
-		//cout << "Attempting to assign process to core..." << endl;
+
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
                 proc->assignCore(i);
                 cpuWorkers[i]->assignScreen(proc);
-				//cout << "Process " << proc->getProcessName() << " has been assigned to core " << i << endl;
                 return 0;
             }
         }

@@ -38,7 +38,9 @@ public:
     void* allocate(size_t size, string strategy, string processName) {
         if (strategy == "FirstFit") {
 			void* temp = allocateFirstFit(size, processName);
-			numOfProcesses++;
+            if (temp != nullptr) {
+    			numOfProcesses++;
+            }
             return temp;
         }
         else if (strategy == "BestFit") {
@@ -58,7 +60,7 @@ public:
 	}
 	void printMemoryLocations() {
 		for (size_t i = 0; i < memory.size(); i++) {
-			cout << &memory[i] << endl;
+			cout << &memory[i] << endl; 
 		}
 		cout << endl;
 	}
@@ -68,8 +70,8 @@ public:
     }
 	void printAllocationMap() {
 		for (size_t i = 0; i < allocationMap.size(); i++) {
-			cout << allocationMap[i].isAllocated << endl;
-            cout << allocationMap[i].processName;
+			cout << allocationMap[i].isAllocated;
+            //cout << allocationMap[i].processName;
 		}
 		cout << endl;
 	}
