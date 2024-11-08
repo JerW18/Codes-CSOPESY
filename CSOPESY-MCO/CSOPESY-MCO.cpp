@@ -202,11 +202,39 @@ void displayConfig() {
     cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n" << endl;
 
 }
+namespace fs = std::filesystem;
 
+void clearLogFiles() {
+    string logDirectory = "logs";
+
+    try {
+        // Check if the directory exists
+        if (!fs::exists(logDirectory) || !fs::is_directory(logDirectory)) {
+            cerr << "Log directory does not exist.\n";
+            return;
+        }
+
+        // Iterate over each file in the logs directory
+        for (const auto& entry : fs::directory_iterator(logDirectory)) {
+            if (entry.is_regular_file()) {
+                const auto& filePath = entry.path();
+                // Check if filename matches the pattern "memory_stamp_XX.txt"
+                if (filePath.filename().string().rfind("memory_stamp_", 0) == 0 && filePath.extension() == ".txt") {
+                    fs::remove(filePath);
+                    //cout << "Deleted: " << filePath << '\n';
+                }
+            }
+        }
+    }
+    catch (const filesystem::filesystem_error& e) {
+        cerr << "Filesystem error: " << e.what() << '\n';
+    }
+}
 void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
+		clearLogFiles();
 		readConfig("config.txt");
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx));
@@ -474,7 +502,7 @@ void screens(const string& option, const string& name) {
             cout << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
         }
         cout << "----start---- = 0\n";
-		memoryAllocator->printAllocationMap();
+		//memoryAllocator->printAllocationMap();
 		lock.unlock();
     }
     else {
