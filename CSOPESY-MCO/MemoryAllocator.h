@@ -104,8 +104,6 @@ public:
             }
         }
 
-        // If no available block found
-        // cout << "No available block found with FirstFit strategy" << endl;
         return nullptr;
     }
 

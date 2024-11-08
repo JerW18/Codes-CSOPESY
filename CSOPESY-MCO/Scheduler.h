@@ -81,7 +81,6 @@ public:
                     continue;
                 }
             }
-			//cout << currentProcess->getProcessName() << endl;
             response = cpuManager->startProcess(currentProcess);
 
 			if (response == 1) {

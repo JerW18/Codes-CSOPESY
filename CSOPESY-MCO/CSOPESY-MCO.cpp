@@ -23,8 +23,6 @@ screenManager* sm;
 global g;
 thread schedulerThread;
 CPUManager* cpuManager;
-//Sheduler* rrScheduler;
-//Sheduler* fcfsScheduler;
 Scheduler* processScheduler;
 thread processThread;
 unique_ptr<MemoryAllocator> memoryAllocator;
@@ -49,20 +47,6 @@ ull memPerProc = 4096;
 
 ull totalFrames = maxOverallMem / memPerFrame;
 bool useFlat = maxOverallMem == memPerFrame;
-/*
-mem-per-frame 
-The size of memory in KB per frame. This is also the memory size per page. 
-The total number of frames is equal to max-overall-mem / mem-per-frame. 
-If max-overall-mem = mem-per-frame, then the emulator will use a flat memory allocator.
-
-min-mem-per-proc / max-mem-per-proc
-Memory required for each process 
-Let P be the number of pages required by a process 
-and M is the rolled value between min-mem-per-proc and max-mem-proc. 
-P can be computed as M/ mem-per-frame.
-
-*/
-
 
 string trim(const string& str) {
     size_t start = str.find_first_not_of(" \t\"");
@@ -208,20 +192,16 @@ void clearLogFiles() {
     string logDirectory = "logs";
 
     try {
-        // Check if the directory exists
         if (!fs::exists(logDirectory) || !fs::is_directory(logDirectory)) {
             cerr << "Log directory does not exist.\n";
             return;
         }
 
-        // Iterate over each file in the logs directory
         for (const auto& entry : fs::directory_iterator(logDirectory)) {
             if (entry.is_regular_file()) {
                 const auto& filePath = entry.path();
-                // Check if filename matches the pattern "memory_stamp_XX.txt"
                 if (filePath.filename().string().rfind("memory_stamp_", 0) == 0 && filePath.extension() == ".txt") {
                     fs::remove(filePath);
-                    //cout << "Deleted: " << filePath << '\n';
                 }
             }
         }
@@ -241,7 +221,6 @@ void initialize() {
         
         processScheduler = new Scheduler(cpuManager, *memoryAllocator);
 
-        // Initialize screenManager with MemoryAllocator
         sm = new screenManager(&mtx, *memoryAllocator);
 
 
@@ -252,19 +231,6 @@ void initialize() {
             : thread();
 		schedulerThread.detach();
         initialized = true;
-
-        /*if (schedulerType == "fcfs") {
-            schedulerThread = thread(&Scheduler::starFCFS, processScheduler);
-			schedulerThread.detach();
-        }
-        else if (schedulerType == "rr") {
-            schedulerThread = thread(&Scheduler::startRR, processScheduler);
-            schedulerThread.detach();
-        }
-        else {
-            cout << "Error: Unknown scheduler type specified in config file.\n" << endl;
-            return;
-        }*/
 
     }
     else {
@@ -303,8 +269,6 @@ void schedStartThread() {
 
         string processName = "p_" + to_string(i);
 
-        // Allocate memory and add process with FirstFit strategy
-        //sm->addProcess(processName, numIns, memoryReq, "FirstFit");
 		sm->addProcess(processName, numIns, memoryReq);
         processScheduler->addProcess(sm->processes.back());
 
@@ -459,7 +423,6 @@ void screens(const string& option, const string& name) {
 
         cout << "----------------------------------" << endl;
         
-		// how to get the memory used by each process
         string lastPrintedProcessName = "";
         size_t lastEndAddress;
         bool changedProcess = false;
@@ -479,11 +442,8 @@ void screens(const string& option, const string& name) {
         cout << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n";
 
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
-            // Print start address of the current process if it's not free
             if (!it->isFree) {
                 if (it->processName != lastPrintedProcessName) {
-                    //cout << "Current process name: " << it->processName << "\n" << "Last printed process name: " << lastPrintedProcessName << endl;
-                    // If the process name changes, print start address
                     if (changedProcess) {
                         cout << lastEndAddress << "\n\n";
                     }
@@ -498,11 +458,9 @@ void screens(const string& option, const string& name) {
         }
 
         if (changedProcess && !memoryState.empty()) {
-            // Ensure you print the start address of the last process
-            cout << memoryState.front().startAddress << "\n\n";  // Print start address of the last process in the memoryState
+            cout << memoryState.front().startAddress << "\n\n"; 
         }
         cout << "----start---- = 0\n";
-		//memoryAllocator->printAllocationMap();
 		lock.unlock();
     }
     else {
