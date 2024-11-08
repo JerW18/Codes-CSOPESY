@@ -18,6 +18,7 @@ typedef unsigned long long ull;
 using namespace std;
 
 mutex mtx;
+mutex testMtx;
 screenManager* sm;
 global g;
 thread schedulerThread;
@@ -202,14 +203,14 @@ void displayConfig() {
 
 }
 
-
 void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
 		readConfig("config.txt");
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx));
+        
         processScheduler = new Scheduler(cpuManager, *memoryAllocator);
 
         // Initialize screenManager with MemoryAllocator
@@ -377,7 +378,7 @@ void screens(const string& option, const string& name) {
 
     }
     else if (option == "-ls") {
-        std::unique_lock<std::mutex> lock(mtx);
+		unique_lock<mutex> lock(testMtx);
 
         cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
         cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
@@ -474,7 +475,7 @@ void screens(const string& option, const string& name) {
         }
         cout << "----start---- = 0\n";
 		memoryAllocator->printAllocationMap();
-        lock.unlock();
+		lock.unlock();
     }
     else {
         cout << "Invalid screen option: " << option << "\n" << endl;

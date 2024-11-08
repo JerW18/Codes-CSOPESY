@@ -29,6 +29,7 @@ private:
 	size_t totalMemorySize;
 	int numOfProcesses = 0;
 public:
+    mutex mtx;
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
         frameSize(frameSize), totalFrames(totalMemorySize / frameSize), totalMemorySize(totalMemorySize),
@@ -140,8 +141,8 @@ public:
 
         return nullptr;
     }
-
     void deallocate(void* ptr, size_t size) {
+		lock_guard<mutex> lock(mtx);
 		void* temp = &memory[0];
 		size_t index = static_cast<char*>(ptr) - temp;
         if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
@@ -154,6 +155,7 @@ public:
 
 			if (allocationMap[(index / frameSize) + i].isAllocated) {
 				allocationMap[(index / frameSize) + i].isAllocated = false;
+				allocationMap[(index / frameSize) + i].processName = "";
 			}
         }
         numOfProcesses--;
@@ -202,6 +204,11 @@ public:
 				inBlock = true;
 			}
 		}
+        if (inBlock) {
+            externalFragmentation += blockSize;
+            blockSize = 0;
+            inBlock = false;
+        }
 		return externalFragmentation;
     }
 

@@ -27,16 +27,16 @@ private:
     string schedulerType;
     mutex mtx;
     MemoryAllocator &memoryAllocator;
+	mutex* mainMtxAddress;
 
     void run() {
 		int totalInstructionsExecuted = 0;
         while (true) {
-            
-            lock_guard<mutex> lock(mtx);
+
+            unique_lock<mutex> lock(mtx);
             if (!available && currentProcess != nullptr) {
                 int instructionsExecuted = 0;
                 if (schedulerType == "rr") {
-
                     while (instructionsExecuted < quantumCycles &&
                         currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 
@@ -67,6 +67,7 @@ private:
                         currentProcess->assignCore(-1);
                         available = true;
                     }
+                    lock.unlock();
 
                 }
                 else if (schedulerType == "fcfs") {
@@ -193,8 +194,10 @@ private:
     }
 
 public:
-    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator)
-        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), schedulerType(schedulerType), memoryAllocator(allocator) {
+    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress)
+        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), 
+        schedulerType(schedulerType), memoryAllocator(allocator) {
+		this->mainMtxAddress = mainMtxAddress;
         workerThread = thread(&CPUWorker::run, this);
         workerThread.detach();
     }
@@ -234,11 +237,14 @@ private:
     int numCpus;
     mutex mtx;
     MemoryAllocator& allocator;
+    mutex* mainMtxAddress;
 
 public:
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator) : numCpus(numCpus), allocator(allocator) {
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
+        : numCpus(numCpus), allocator(allocator)  {
+		this->mainMtxAddress = mainMtxAddress;
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator));
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress));
         }
     }
 
