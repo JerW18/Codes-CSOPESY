@@ -19,6 +19,7 @@ private:
     volatile ull& cycleCount;
 public:
     deque<shared_ptr<process>> processes;
+	deque<shared_ptr<process>> backingStore;
 	/*Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator) : allocator(allocator)
     {
         this->cpuManager = cpuManager;
@@ -81,24 +82,11 @@ public:
                 addProcess(p);
             }
             if (prevCycleCount != cycleCount) {
-                /*if (processes.empty() && prevCycleCount != cycleCount) {
-                    this_thread::sleep_for(chrono::milliseconds(100));
-                    continue;
-                }
-                else {
-                    lock_guard<mutex> lock(mtx);
-                    if (prevCycleCount != cycleCount) {
-                        currentProcess = processes.front();
-                        processes.pop_front();
-                    }
-                    else {
-                        continue;
-                    }
-                }*/
+
 
                 {
                     unique_lock<mutex> lock(mtx);
-                    if (cv.wait_for(lock, chrono::milliseconds(10), [this] { return !processes.empty(); })) {
+                    if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes.empty(); })) {
                         currentProcess = processes.front();
                         processes.pop_front();
                     }
@@ -106,19 +94,32 @@ public:
                         continue;
                     }
                 }
-                response = cpuManager->startProcess(currentProcess);
+                response = cpuManager->assignMemory(currentProcess);
+				//cout << "Response: " << response << endl;
 
-                if (response == 1) {
+                if (response > -1) {
                     lock_guard<mutex> lock(mtx);
-                    processes.push_back(currentProcess);
+                    // process was preempted and kicked out of the queue 
+                    // find the process that was kicked out and tell it that it has no memory assigned
+                    for (auto& p : processes) {
+                        if (p->getId() == response) {
+							p->setMemoryAssigned(false);
+							p->assignMemoryAddress(nullptr);
+							backingStore.push_back(p);
+                            break;
+                        }
+                    }
+					processes.push_back(currentProcess);
                 }
+			    
+                response = cpuManager->startProcess(currentProcess);
 
                 if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
                     lock_guard<mutex> lock(mtx);
                     processes.push_front(currentProcess);
                     cv.notify_all();
                 }
-                response = 3;
+                response = -3;
                 prevCycleCount = cycleCount;
             }
         }

@@ -287,30 +287,46 @@ public:
 	}
 
 
-    int startProcess(shared_ptr<process> proc) {
+    int assignMemory(shared_ptr<process> proc) {
         if (!proc) {
             return -10;
         }
         lock_guard<mutex> lock(mtx);
+        ull pos;
+        string temp;
         if (!proc->hasMemoryAssigned()) {
-            void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
-            if (allocatedMemory) {
-                proc->assignMemory(allocatedMemory, proc->getMemoryRequired());
-				proc->setMemoryAssigned(true);
+            //void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
+            pair <void*, string> allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
+            if (allocatedMemory.first) {
+                proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
+                proc->setMemoryAssigned(true);
+				if (allocatedMemory.second == "") {
+					return -1;
+				}
+                pos = allocatedMemory.second.find('_');
+				temp = allocatedMemory.second.substr(2);
+                //cout << temp;
+                return stoi(temp);
             }
             else {
-                return 1;
+                return -100;
             }
-        }
+		}
+		else {
+			return -100;
+		}
+    }
         
-
+	int startProcess(shared_ptr<process> proc) {
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
                 proc->assignCore(i);
                 cpuWorkers[i]->assignScreen(proc);
-                return 0;
+                return 1;
+                //success
             }
         }
+        return 0;
     }
 
 

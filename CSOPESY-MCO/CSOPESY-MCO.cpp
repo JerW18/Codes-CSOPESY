@@ -307,7 +307,7 @@ void schedStartThread() {
 
             lock.unlock();
             //this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
-			cout << "Process " << processName << " added to scheduler at time "<< cycleCount << endl;
+			//cout << "Process " << processName << " added to scheduler at time "<< cycleCount << endl;
 			while (cycleCount - previousCycle < batchProcessFreq) {
 				this_thread::sleep_for(chrono::milliseconds(100));
 			}
@@ -501,6 +501,8 @@ void screens(const string& option, const string& name) {
             cout << memoryState.front().startAddress << "\n\n"; 
         }
         cout << "----start---- = 0\n";
+
+        memoryAllocator->printProcessAges();
 		lock.unlock();
     }
     else {
