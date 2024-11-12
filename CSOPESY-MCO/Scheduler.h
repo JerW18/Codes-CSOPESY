@@ -16,9 +16,19 @@ private:
     mutex mtx;
     condition_variable cv;
     MemoryAllocator& allocator;
+    volatile ull& cycleCount;
 public:
     deque<shared_ptr<process>> processes;
-	Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator) : allocator(allocator)
+	/*Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator) : allocator(allocator)
+    {
+        this->cpuManager = cpuManager;
+    }*/
+
+	// Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator, volatile ull* cycleCount) : allocator(allocator), cycleCount(cycleCount)
+    // {
+    //     this->cpuManager = cpuManager;
+    // }
+    Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator, volatile ull& cycleCount) : allocator(allocator), cycleCount(cycleCount)
     {
         this->cpuManager = cpuManager;
     }
@@ -64,36 +74,53 @@ public:
     void startRR() {
         shared_ptr<process> currentProcess = nullptr;
         int response = 0;
+        int prevCycleCount = cycleCount;
         while (true) {
-
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
             }
-            
-            {
-                unique_lock<mutex> lock(mtx);
-                if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes.empty(); })) {
-                    currentProcess = processes.front();
-                    processes.pop_front();
-                }
-                else {
+            if (prevCycleCount != cycleCount) {
+                /*if (processes.empty() && prevCycleCount != cycleCount) {
+                    this_thread::sleep_for(chrono::milliseconds(100));
                     continue;
                 }
-            }
-            response = cpuManager->startProcess(currentProcess);
+                else {
+                    lock_guard<mutex> lock(mtx);
+                    if (prevCycleCount != cycleCount) {
+                        currentProcess = processes.front();
+                        processes.pop_front();
+                    }
+                    else {
+                        continue;
+                    }
+                }*/
 
-			if (response == 1) {
-				lock_guard<mutex> lock(mtx);
-				processes.push_back(currentProcess);
-			}
+                {
+                    unique_lock<mutex> lock(mtx);
+                    if (cv.wait_for(lock, chrono::milliseconds(10), [this] { return !processes.empty(); })) {
+                        currentProcess = processes.front();
+                        processes.pop_front();
+                    }
+                    else {
+                        continue;
+                    }
+                }
+                response = cpuManager->startProcess(currentProcess);
 
-            if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-                lock_guard<mutex> lock(mtx);
-                processes.push_front(currentProcess);
-                cv.notify_all();
+                if (response == 1) {
+                    lock_guard<mutex> lock(mtx);
+                    processes.push_back(currentProcess);
+                }
+
+                if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                    lock_guard<mutex> lock(mtx);
+                    processes.push_front(currentProcess);
+                    cv.notify_all();
+                }
+                response = 3;
+                prevCycleCount = cycleCount;
             }
-            response = 3;
         }
     }
 	void printQueue() {
@@ -101,7 +128,7 @@ public:
 			cout << i << " is " << processes[i]->getProcessName() << endl;
 		}
 	}
-    void getSize() {
-        cout << processes.size() << endl;
+    ull getSize() {
+        return processes.size();
     }
 };

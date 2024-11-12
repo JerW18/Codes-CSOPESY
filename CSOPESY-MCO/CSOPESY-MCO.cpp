@@ -17,6 +17,30 @@
 typedef unsigned long long ull;
 using namespace std;
 
+volatile bool running = true;
+volatile ull cycleCount = 0;
+mutex cycleMutex;
+void incrementCycleCount() {
+    unique_lock<mutex> lock(cycleMutex);
+	cycleCount+=1;
+	this_thread::sleep_for(chrono::milliseconds(100));
+    lock.unlock();
+}
+void resetCycleCount() {
+	cycleCount = 0;
+}
+ull getCycleCount() {
+	return cycleCount;
+}
+void runCycleCount() {
+	//cout << "Running cycle count." << endl;
+	while (running) {
+		incrementCycleCount();
+		//cout << "Cycle count outside: " << cycleCount << endl;
+	}
+}
+thread cycleThread;
+
 mutex mtx;
 mutex testMtx;
 screenManager* sm;
@@ -187,7 +211,6 @@ void displayConfig() {
 
 }
 namespace fs = std::filesystem;
-
 void clearLogFiles() {
     string logDirectory = "logs";
 
@@ -213,13 +236,20 @@ void clearLogFiles() {
 void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
+        
 		lock_guard<mutex> lock(mtx);
 		clearLogFiles();
 		readConfig("config.txt");
+		//start cycle thread
+        cycleThread = thread(runCycleCount);
+        cycleThread.detach();
+
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx));
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx), *&cycleCount);
         
-        processScheduler = new Scheduler(cpuManager, *memoryAllocator);
+        processScheduler = new Scheduler(cpuManager, *memoryAllocator, *&cycleCount);
+
+        //processScheduler = new Scheduler(cpuManager, *memoryAllocator, &cycleCount);
 
         sm = new screenManager(&mtx, *memoryAllocator);
 
@@ -260,20 +290,29 @@ void schedStart() {
 }
 
 bool firstProcess = true;
+ull previousCycle;
 void schedStartThread() {
+	previousCycle = cycleCount;
     while (makeProcess) {
-        unique_lock<mutex> lock(mtx);
-        ull i = sm->getProcessCount();
-        ull numIns = randomInsLength();
-		ull memoryReq = memPerProc; //randomMemLength();
+        if (previousCycle != cycleCount) {
+            unique_lock<mutex> lock(mtx);
+            ull i = sm->getProcessCount();
+            ull numIns = randomInsLength();
+            ull memoryReq = memPerProc; //randomMemLength();
 
-        string processName = "p_" + to_string(i);
+            string processName = "p_" + to_string(i);
 
-		sm->addProcess(processName, numIns, memoryReq);
-        processScheduler->addProcess(sm->processes.back());
+            sm->addProcess(processName, numIns, memoryReq);
+            processScheduler->addProcess(sm->processes.back());
 
-        lock.unlock();
-        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+            lock.unlock();
+            //this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+			cout << "Process " << processName << " added to scheduler at time "<< cycleCount << endl;
+			while (cycleCount - previousCycle < batchProcessFreq) {
+				this_thread::sleep_for(chrono::milliseconds(100));
+			}
+            previousCycle = cycleCount;
+        }
     }
 }
 
@@ -371,7 +410,8 @@ void screens(const string& option, const string& name) {
     }
     else if (option == "-ls") {
 		unique_lock<mutex> lock(testMtx);
-
+		cout << "Cycle count: " << getCycleCount() << endl;
+		cout << "Size of queue is: " << processScheduler->getSize() << endl;
         cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
         cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
         cout << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
@@ -481,6 +521,11 @@ void exitProgram() {
     cout << "Exiting program." << endl;
 
     makeProcess = false;
+    running = false;
+
+	if (cycleThread.joinable()) {
+		cycleThread.join();
+	}
 
     if (processThread.joinable()) {
         processThread.join();

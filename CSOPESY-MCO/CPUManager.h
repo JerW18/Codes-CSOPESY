@@ -28,64 +28,71 @@ private:
     mutex mtx;
     MemoryAllocator &memoryAllocator;
 	mutex* mainMtxAddress;
-
+    bool isStarted = false;
     void run() {
 		int totalInstructionsExecuted = 0;
-        while (true) {
+		while (!isStarted) {
+			if (cycleCount % 10 == 0) {
+                isStarted = true;
+			}
+			//cout << this->cpu_Id << " Waiting for start signal " << cycleCount  << endl;
+        }
+        if (isStarted) {
+            while (true) {
+                if (!available && currentProcess != nullptr) {
+                    int instructionsExecuted = 0;
+                    unique_lock<mutex> lock(mtx);
+                    if (schedulerType == "rr") {
+                        while (instructionsExecuted < quantumCycles &&
+                            currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 
-            unique_lock<mutex> lock(mtx);
-            if (!available && currentProcess != nullptr) {
-                int instructionsExecuted = 0;
-                if (schedulerType == "rr") {
-                    while (instructionsExecuted < quantumCycles &&
-                        currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-
-                        this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
-                        currentProcess->incrementInstructionIndex();
-                        instructionsExecuted++;
-                        totalInstructionsExecuted++;
-                        this_thread::sleep_for(chrono::milliseconds(100));
-						logMemoryState(totalInstructionsExecuted);
-                    }
-                    if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
-                        if (currentProcess->getMemoryAddress() != nullptr) {
-                            memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
-                            currentProcess->assignMemoryAddress(nullptr);
-                            currentProcess->setMemoryAssigned(false);
+                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
+                            currentProcess->incrementInstructionIndex();
+                            instructionsExecuted++;
+                            totalInstructionsExecuted++;
+                            this_thread::sleep_for(chrono::milliseconds(100));
+                            logMemoryState(totalInstructionsExecuted);
                         }
-                        this->available = true;
-                        currentProcess = nullptr;
-                        
-                    }
+                        if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+                            if (currentProcess->getMemoryAddress() != nullptr) {
+                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                                currentProcess->assignMemoryAddress(nullptr);
+                                currentProcess->setMemoryAssigned(false);
+                            }
+                            this->available = true;
+                            currentProcess = nullptr;
 
-                    else {
-                        /*if (currentProcess->getMemoryAddress() != nullptr) {
-                            memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
-							currentProcess->assignMemoryAddress(nullptr);
-							currentProcess->setMemoryAssigned(false);
-                        }*/
-                        currentProcess->assignCore(-1);
+                        }
+
+                        else {
+                            /*if (currentProcess->getMemoryAddress() != nullptr) {
+                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                                currentProcess->assignMemoryAddress(nullptr);
+                                currentProcess->setMemoryAssigned(false);
+                            }*/
+                            currentProcess->assignCore(-1);
+                            available = true;
+                        }
+                        lock.unlock();
+
+                    }
+                    else if (schedulerType == "fcfs") {
+
+                        while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
+                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
+                            currentProcess->incrementInstructionIndex();
+                            this_thread::sleep_for(chrono::milliseconds(100));
+                        }
+
                         available = true;
-                    }
-                    lock.unlock();
+                        memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                        currentProcess = nullptr;
 
-                }
-                else if (schedulerType == "fcfs") {
-                    
-                    while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-                        this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
-                        currentProcess->incrementInstructionIndex();
-                        this_thread::sleep_for(chrono::milliseconds(100));
                     }
-                   
-                    available = true;
-                    memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
-                    currentProcess = nullptr;
-                    
                 }
-            }
-            else { 
-                this_thread::sleep_for(chrono::milliseconds(100));
+                else {
+                    this_thread::sleep_for(chrono::milliseconds(1000));
+                }
             }
         }
     }
@@ -194,10 +201,20 @@ private:
     }
 
 public:
-    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress)
+	volatile ull& cycleCount;
+    /*CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), 
         schedulerType(schedulerType), memoryAllocator(allocator) {
 		this->mainMtxAddress = mainMtxAddress;
+        workerThread = thread(&CPUWorker::run, this);
+        workerThread.detach();
+    }*/
+
+    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, 
+                mutex* mainMtxAddress, volatile ull& cycleCount)
+        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec),
+        schedulerType(schedulerType), memoryAllocator(allocator), cycleCount(cycleCount){
+        this->mainMtxAddress = mainMtxAddress;
         workerThread = thread(&CPUWorker::run, this);
         workerThread.detach();
     }
@@ -238,17 +255,24 @@ private:
     mutex mtx;
     MemoryAllocator& allocator;
     mutex* mainMtxAddress;
-
+	volatile ull& cycleCount;
 public:
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
+    /*CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
         : numCpus(numCpus), allocator(allocator)  {
 		this->mainMtxAddress = mainMtxAddress;
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress));
         }
-    }
+    }*/
 
-	
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator,
+                mutex* mainMtxAddress, volatile ull& cycleCount)
+        : numCpus(numCpus), allocator(allocator), cycleCount(cycleCount){
+        this->mainMtxAddress = mainMtxAddress;
+        for (int i = 0; i < numCpus; i++) {
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress, *&cycleCount));
+        }
+    }
 
 	vector<shared_ptr<process>> isAnyoneAvailable() {
 		lock_guard<mutex> lock(mtx);
