@@ -10,21 +10,22 @@
 #include "screen.h"
 #include "global.h"
 #include "CPUManager.h"
-#include "FCFSScheduler.h"
-#include "RRScheduler.h"
+#include "Scheduler.h"
 #include <mutex>
+#include "MemoryAllocator.h"
 
 typedef unsigned long long ull;
 using namespace std;
 
 mutex mtx;
-screenManager sm = screenManager(&mtx);
+mutex testMtx;
+screenManager* sm;
 global g;
 thread schedulerThread;
 CPUManager* cpuManager;
-RRScheduler* rrScheduler;
-FCFSScheduler* fcfsScheduler;
+Scheduler* processScheduler;
 thread processThread;
+unique_ptr<MemoryAllocator> memoryAllocator;
 
 bool inScreen = false;
 bool initialized = false; 
@@ -37,6 +38,15 @@ ull batchProcessFreq = 1;
 ull minInstructions = 1000;
 ull maxInstructions = 2000;
 ull delaysPerExec = 0;
+
+ull maxOverallMem = 16384;
+ull memPerFrame = 16;
+ull maxMemPerProcess = 4096;
+ull minMemPerProcess = 4096;
+ull memPerProc = 4096;
+
+ull totalFrames = maxOverallMem / memPerFrame;
+bool useFlat = maxOverallMem == memPerFrame;
 
 string trim(const string& str) {
     size_t start = str.find_first_not_of(" \t\"");
@@ -117,38 +127,111 @@ void readConfig(const string& filename) {
                     delaysPerExec = 0;
                 }
             }
+            else if (key == "max-overaall-mem") {
+				maxOverallMem = stoull(value);
+				if (maxOverallMem < 2 || maxOverallMem > 4294967296ULL) {
+					cout << "Error: max-overall-mem must be between 1 and 2^32. Using default value of 16384.\n" << endl;
+					maxOverallMem = 16384;
+				}
+            }
+            else if (key == "mem-per-frame") {
+				memPerFrame = stoull(value);
+				if (memPerFrame < 2 || memPerFrame > 4294967296ULL) {
+					cout << "Error: mem-per-frame must be between 1 and 2^32. Using default value of 16.\n" << endl;
+					memPerFrame = 16;
+				}
+			}
+			else if (key == "max-mem-per-proc") {
+				maxMemPerProcess = stoull(value);
+                if (maxMemPerProcess < 2 || maxMemPerProcess > 4294967296ULL) {
+                    cout << "Error: max-mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+                    maxMemPerProcess = 4096;
+                }
+            }
+            else if (key == "min-mem-per-proc") {
+				minMemPerProcess = stoull(value);
+                if (minMemPerProcess < 2 || minMemPerProcess > 4294967296ULL) {
+					cout << "Error: min-mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+					minMemPerProcess = 4096;
+                }
+            }
+            else if (key == "mem-per-proc") {
+                memPerProc = stoull(value);
+                if (memPerProc < 2 || memPerProc > 4294967296ULL) {
+                    cout << "Error: mem-per-proc must be between 1 and 2^32. Using default value of 4096.\n" << endl;
+                    memPerProc = 4096;
+                }
+            }
+            totalFrames = maxOverallMem / memPerFrame;
+            useFlat = maxOverallMem == memPerFrame;
         }
     }
-
     configFile.close();
 }
 
+void displayConfig() {
+	cout << "num-cpu: " << numCPU << endl;
+	cout << "scheduler: " << schedulerType << endl;
+	cout << "quantum-cycles: " << quantumCycles << endl;
+	cout << "batch-process-freq: " << batchProcessFreq << endl;
+	cout << "min-ins: " << minInstructions << endl;
+	cout << "max-ins: " << maxInstructions << endl;
+	cout << "delays-per-exec: " << delaysPerExec << endl;
+	cout << "max-overall-mem: " << maxOverallMem << endl;
+	cout << "mem-per-frame: " << memPerFrame << endl;
+	cout << "max-mem-per-proc: " << maxMemPerProcess << endl;
+	cout << "min-mem-per-proc: " << minMemPerProcess << endl;
+	cout << "mem-per-proc: " << memPerProc << endl;
+	cout << "total-frames: " << totalFrames << endl; 
+    cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n" << endl;
 
+}
+namespace fs = std::filesystem;
+
+void clearLogFiles() {
+    string logDirectory = "logs";
+
+    try {
+        if (!fs::exists(logDirectory) || !fs::is_directory(logDirectory)) {
+            cerr << "Log directory does not exist.\n";
+            return;
+        }
+
+        for (const auto& entry : fs::directory_iterator(logDirectory)) {
+            if (entry.is_regular_file()) {
+                const auto& filePath = entry.path();
+                if (filePath.filename().string().rfind("memory_stamp_", 0) == 0 && filePath.extension() == ".txt") {
+                    fs::remove(filePath);
+                }
+            }
+        }
+    }
+    catch (const filesystem::filesystem_error& e) {
+        cerr << "Filesystem error: " << e.what() << '\n';
+    }
+}
 void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
 		lock_guard<mutex> lock(mtx);
+		clearLogFiles();
 		readConfig("config.txt");
+        memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx));
+        
+        processScheduler = new Scheduler(cpuManager, *memoryAllocator);
+
+        sm = new screenManager(&mtx, *memoryAllocator);
 
 
-        if (schedulerType == "fcfs") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			fcfsScheduler = new FCFSScheduler(cpuManager);
-            schedulerThread = thread(&FCFSScheduler::start, fcfsScheduler);
-			schedulerThread.detach();
-        }
-        else if (schedulerType == "rr") {
-            cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType);
-			rrScheduler = new RRScheduler(cpuManager);
-            schedulerThread = thread(&RRScheduler::start, rrScheduler);
-            schedulerThread.detach();
-        }
-        else {
-            cout << "Error: Unknown scheduler type specified in config file.\n" << endl;
-            return;
-        }
+        schedulerThread = (schedulerType == "fcfs")
+            ? thread(&Scheduler::starFCFS, processScheduler)
+            : (schedulerType == "rr")
+            ? thread(&Scheduler::startRR, processScheduler)
+            : thread();
+		schedulerThread.detach();
+        initialized = true;
 
-        initialized = true;  
     }
     else {
         cout << "'initialize' command has already been executed.\n" << endl;
@@ -158,6 +241,10 @@ void initialize() {
 ull randomInsLength() {
     return rand() % (maxInstructions - minInstructions + 1) + minInstructions;
 }
+ull randomMemLength() {
+	return rand() % (maxMemPerProcess - minMemPerProcess + 1) + minMemPerProcess;
+}
+
 
 void schedStartThread();
 void schedStop();
@@ -168,39 +255,28 @@ void schedStart() {
         processThread = thread(schedStartThread);
     }
     else {
-        cout << "Error: Scheduler not initialized or is already running.\n" << endl;
+        cout << "Error: Scheduler not initialized or running already. Use 'initialize' command first.\n" << endl;
     }
 }
 
 bool firstProcess = true;
 void schedStartThread() {
-    ull i = sm.getProcessCount();
-    ull numIns = 0;
-
     while (makeProcess) {
-        std::unique_lock<std::mutex> lock(mtx);
-        i = sm.getProcessCount();
-        if (firstProcess) {
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
-            firstProcess = false;
-        }
-        numIns = randomInsLength();
+        unique_lock<mutex> lock(mtx);
+        ull i = sm->getProcessCount();
+        ull numIns = randomInsLength();
+		ull memoryReq = memPerProc; //randomMemLength();
 
-		
-		string processName = "p_" + to_string(i);
-        sm.addProcess(processName, numIns);
-        if (schedulerType == "fcfs") {
-            fcfsScheduler->addProcess(sm.processes.back());
-        }
-        else if (schedulerType == "rr") {
-            rrScheduler->addProcess(sm.processes.back());
-        }
+        string processName = "p_" + to_string(i);
+
+		sm->addProcess(processName, numIns, memoryReq);
+        processScheduler->addProcess(sm->processes.back());
+
         lock.unlock();
-        if(!firstProcess)
-            this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
+        this_thread::sleep_for(chrono::milliseconds(batchProcessFreq * 100));
     }
-
 }
+
 
 
 void schedStop() {
@@ -225,10 +301,10 @@ void schedStop() {
 void report() {
     if (!initialized) {
         cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
-		return;
+        return;
     }
 
-    std::unique_lock<std::mutex> lock(mtx);
+    unique_lock<mutex> lock(mtx);
     ofstream reportFile("report.txt");
     if (!reportFile.is_open()) {
         cout << "Error: Could not open report file." << endl;
@@ -236,48 +312,8 @@ void report() {
     }
 
     reportFile << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
-    reportFile << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
-    reportFile << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
-    reportFile << "----------------------------------" << endl;
-    reportFile << "Running Processes:" << endl;
-
-    for (auto& screen : sm.processes) {
-        if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Core: "
-                << screen->getCoreAssigned() << " Running "
-                << screen->getInstructionIndex() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << endl;
-    reportFile << "Ready Processes (Not in Queue Order):" << endl;
-    for (auto& screen : sm.processes) {
-        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Core: None"
-                << " Ready "
-                << screen->getInstructionIndex() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << endl;
-    reportFile << "Finished Processes:" << endl;
-
-    for (auto& screen : sm.processes) {
-        if (screen->isFinished()) {
-            reportFile << screen->getProcessName() << " ("
-                << screen->getDateOfBirth() << ") Finished "
-                << screen->getTotalInstructions() << " / "
-                << screen->getTotalInstructions() << endl;
-        }
-    }
-
-    reportFile << "----------------------------------" << endl;
+   
     reportFile.close();
-    lock.unlock();
 
     cout << "Report generated.\n" << endl;
 }
@@ -291,12 +327,12 @@ void screens(const string& option, const string& name) {
 
     if (option == "-r") {
         std::unique_lock<std::mutex> lock(mtx);
-        for (auto screen : sm.processes) {
+        for (auto screen : sm->processes) {
             if (screen->getProcessName() == name) {
                 ull id = screen->getId();
                 cout << "Reattaching to screen session: " << name << endl;
                 inScreen = true;
-                sm.reattatchProcess(name, id);
+                sm->reattachProcess(name, id);
                 return;
             }
         }
@@ -305,7 +341,7 @@ void screens(const string& option, const string& name) {
     }
     else if (option == "-s") {
         std::unique_lock<std::mutex> lock(mtx);
-        for (auto screen : sm.processes) {
+        for (auto screen : sm->processes) {
             if (screen->getProcessName() == name) {
                 cout << "Screen already exists. Try a different name or use screen -r <name> to reattach it.\n" << endl;
                 return;
@@ -314,26 +350,27 @@ void screens(const string& option, const string& name) {
         cout << "Starting new terminal session: " << name << endl;
 
         ull instructions = randomInsLength();
-        sm.addProcessManually(name, instructions);
+        sm->addProcessManually(name, instructions, memPerProc);
 
-        shared_ptr<process> newProcess = sm.processes.back();
+        shared_ptr<process> newProcess = sm->processes.back();
+        processScheduler->addProcess(newProcess);
 
-        if (schedulerType == "fcfs" && fcfsScheduler != nullptr) {
-            fcfsScheduler->addProcess(newProcess);
+        /*if (schedulerType == "fcfs" && processScheduler != nullptr) {
+            processScheduler->addProcess(newProcess);
         }
-        else if (schedulerType == "rr" && rrScheduler != nullptr) {
-            rrScheduler->addProcess(newProcess);
+        else if (schedulerType == "rr" && processScheduler != nullptr) {
+            processScheduler->addProcess(newProcess);
         }
         else {
             cout << "Error: Scheduler not initialized or unknown scheduler type.\n" << endl;
-        }
+        }*/
 
         inScreen = true;
 		lock.unlock();
 
     }
     else if (option == "-ls") {
-        std::unique_lock<std::mutex> lock(mtx);
+		unique_lock<mutex> lock(testMtx);
 
         cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
         cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
@@ -341,43 +378,90 @@ void screens(const string& option, const string& name) {
         cout << "----------------------------------" << endl;
 
         cout << "Running Processes:" << endl;
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: "
                     << screen->getCoreAssigned() << " Running "
                     << screen->getInstructionIndex() << " / "
-                    << screen->getTotalInstructions() << endl;
+                    << screen->getTotalInstructions() << " Memory: "
+                    << screen->getMemoryRequired() << " / " <<
+                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                    endl;
             }
         }
 
         cout << endl;
 
         cout << "Ready Processes (Not in Queue Order):" << endl;
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Core: None"
                     << " Ready "
                     << screen->getInstructionIndex() << " / "
-                    << screen->getTotalInstructions() << endl;
+                    << screen->getTotalInstructions() << " Memory: "
+                    << screen->getMemoryRequired() << " / " <<
+                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                    endl;
             }
         }
 
         cout << endl;
         cout << "Finished Processes:" << endl;
 
-        for (auto& screen : sm.processes) {
+        for (auto& screen : sm->processes) {
             if (screen->isFinished()) {
                 cout << screen->getProcessName() << " ("
                     << screen->getDateOfBirth() << ") Finished "
                     << screen->getTotalInstructions() << " / "
-                    << screen->getTotalInstructions() << endl;
+                    << screen->getTotalInstructions() << " Memory used: "
+                    << screen->getMemoryRequired() <<
+                    endl;
             }
         }
 
-        cout << "----------------------------------\n" << endl;
-        lock.unlock();
+        cout << "----------------------------------" << endl;
+        
+        string lastPrintedProcessName = "";
+        size_t lastEndAddress;
+        bool changedProcess = false;
+
+		timeStamp t;
+
+        std::string timestamp = t.getTimeStamp();
+
+        int numProcessesInMemory = memoryAllocator->getNumOfProcesses();
+        int totalExternalFragmentation = memoryAllocator->getExternalFragmentation();
+        auto memoryState = memoryAllocator->getMemoryState();
+
+        cout << "Timestamp: " << timestamp << "\n";
+        cout << "Number of processes in memory: " << numProcessesInMemory << "\n";
+        cout << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
+
+        cout << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n";
+
+        for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
+            if (!it->isFree) {
+                if (it->processName != lastPrintedProcessName) {
+                    if (changedProcess) {
+                        cout << lastEndAddress << "\n\n";
+                    }
+                    cout << it->endAddress << "\n";
+                    cout << it->processName << "\n";
+
+                    lastPrintedProcessName = it->processName;
+                    changedProcess = true;
+                }
+                lastEndAddress = it->startAddress;
+            }
+        }
+
+        if (changedProcess && !memoryState.empty()) {
+            cout << memoryState.front().startAddress << "\n\n"; 
+        }
+        cout << "----start---- = 0\n";
+		lock.unlock();
     }
     else {
         cout << "Invalid screen option: " << option << "\n" << endl;
@@ -412,6 +496,9 @@ void exitProgram() {
 
 
 map<string, void (*)()> commands = {
+    {"sst", schedStart},
+	{"ssp", schedStop},
+    {"display-config", displayConfig},
     {"report-util", report},
 	{"scheduler-test", schedStart},
     {"scheduler-stop", schedStop},
