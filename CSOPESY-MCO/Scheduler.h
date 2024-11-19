@@ -81,7 +81,7 @@ public:
             for (auto& p : toAdd) {
                 addProcess(p);
             }
-            if (prevCycleCount != cycleCount) {
+            //if (prevCycleCount != cycleCount) {
 
 
                 {
@@ -120,8 +120,8 @@ public:
                     cv.notify_all();
                 }
                 response = -3;
-                prevCycleCount = cycleCount;
-            }
+                //prevCycleCount = cycleCount;
+            //}
         }
     }
 	void printQueue() {
