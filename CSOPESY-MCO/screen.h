@@ -33,6 +33,7 @@ private:
 	//ull assignedPages = 0;
 	bool hasMemory = false;
 
+
 public:
     string getProcessName() {
         return this->processName;
@@ -125,12 +126,13 @@ private:
     shared_ptr<process> currentProcess = nullptr;
     mutex* m;
     MemoryAllocator& allocator;
+    string memType;
 public:
     vector<shared_ptr<process>> processes;
     bool inScreen = false;
 
-    screenManager(mutex* mutexPtr, MemoryAllocator& allocator)
-        : m(mutexPtr), allocator(allocator) {}
+    screenManager(mutex* mutexPtr, MemoryAllocator& allocator, string memType)
+        : m(mutexPtr), allocator(allocator), memType(memType) {}
 
     void printProcess() {
         for (auto& x : this->processes) {
@@ -156,7 +158,7 @@ public:
     void removeProcess(string processName) {
         for (auto it = processes.begin(); it != processes.end(); ++it) {
             if ((*it)->getProcessName() == processName) {
-                allocator.deallocate((*it)->getMemoryAddress(), (*it)->getMemoryRequired());
+                allocator.deallocate((*it)->getMemoryAddress(), (*it)->getMemoryRequired(),memType, processName);
                 processes.erase(it);
                 //cout << "Process " << processName << " removed and memory deallocated." << endl;
                 return;

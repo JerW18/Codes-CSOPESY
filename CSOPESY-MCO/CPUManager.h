@@ -29,6 +29,7 @@ private:
     MemoryAllocator &memoryAllocator;
 	mutex* mainMtxAddress;
     bool isStarted = false;
+	string memType;
     void run() {
 		int totalInstructionsExecuted = 0;
 		while (!isStarted) {
@@ -41,6 +42,14 @@ private:
             while (true) {
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
+                    if (!currentProcess->hasMemoryAssigned()) {
+						lock_guard<mutex> lock(*mainMtxAddress);
+                        currentProcess->assignCore(-1); // Unassign core
+                        available = true;
+                        currentProcess = nullptr;
+                        continue;
+                    }
+
                     unique_lock<mutex> lock(mtx);
                     if (schedulerType == "rr") {
                         while (instructionsExecuted < quantumCycles &&
@@ -55,7 +64,7 @@ private:
                         }
                         if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                             if (currentProcess->getMemoryAddress() != nullptr) {
-                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                             }
@@ -85,7 +94,7 @@ private:
                         }
 
                         available = true;
-                        memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                        memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                         currentProcess = nullptr;
 
                     }
@@ -211,9 +220,9 @@ public:
     }*/
 
     CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, 
-                mutex* mainMtxAddress, volatile ull& cycleCount)
+		mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec),
-        schedulerType(schedulerType), memoryAllocator(allocator), cycleCount(cycleCount){
+        schedulerType(schedulerType), memoryAllocator(allocator), cycleCount(cycleCount), memType(memType) {
         this->mainMtxAddress = mainMtxAddress;
         workerThread = thread(&CPUWorker::run, this);
         workerThread.detach();
@@ -255,6 +264,7 @@ private:
     mutex mtx;
     MemoryAllocator& allocator;
     mutex* mainMtxAddress;
+	string memType;
 	volatile ull& cycleCount;
 public:
     /*CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
@@ -266,11 +276,11 @@ public:
     }*/
 
     CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator,
-                mutex* mainMtxAddress, volatile ull& cycleCount)
-        : numCpus(numCpus), allocator(allocator), cycleCount(cycleCount){
+                mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
+        : numCpus(numCpus), allocator(allocator), cycleCount(cycleCount), memType(memType){
         this->mainMtxAddress = mainMtxAddress;
         for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress, *&cycleCount));
+            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress, *&cycleCount, memType));
         }
     }
 
@@ -295,8 +305,8 @@ public:
         ull pos;
         string temp;
         if (!proc->hasMemoryAssigned()) {
-            //void* allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
-            pair <void*, string> allocatedMemory = allocator.allocate(proc->getMemoryRequired(), "FirstFit", proc->getProcessName());
+           
+            pair <void*, string> allocatedMemory = allocator.allocate(proc->getMemoryRequired(),memType, proc->getProcessName());
             if (allocatedMemory.first) {
                 proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
                 proc->setMemoryAssigned(true);

@@ -19,6 +19,7 @@ using namespace std;
 
 volatile bool running = true;
 volatile ull cycleCount = 0;
+string memType;
 mutex cycleMutex;
 void incrementCycleCount() {
     unique_lock<mutex> lock(cycleMutex);
@@ -68,6 +69,7 @@ ull memPerFrame = 16;
 ull maxMemPerProcess = 4096;
 ull minMemPerProcess = 4096;
 ull memPerProc = 4096;
+
 
 ull totalFrames = maxOverallMem / memPerFrame;
 bool useFlat = maxOverallMem == memPerFrame;
@@ -241,17 +243,25 @@ void initialize() {
 		clearLogFiles();
 		readConfig("config.txt");
 		//start cycle thread
+
+        if (maxOverallMem == memPerFrame) {
+            memType = "Flat Memory";
+        }
+        else {
+            memType = "Paging";
+        }
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
         memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx), *&cycleCount);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx), *&cycleCount, memType);
         
         processScheduler = new Scheduler(cpuManager, *memoryAllocator, *&cycleCount);
 
         //processScheduler = new Scheduler(cpuManager, *memoryAllocator, &cycleCount);
+	
 
-        sm = new screenManager(&mtx, *memoryAllocator);
+        sm = new screenManager(&mtx, *memoryAllocator, memType);
 
 
         schedulerThread = (schedulerType == "fcfs")
