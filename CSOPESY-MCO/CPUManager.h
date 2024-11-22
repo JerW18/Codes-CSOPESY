@@ -55,11 +55,11 @@ private:
                         while (instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 
-                            this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
+                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                             currentProcess->incrementInstructionIndex();
                             instructionsExecuted++;
                             totalInstructionsExecuted++;
-                            this_thread::sleep_for(chrono::milliseconds(1000));
+                            this_thread::sleep_for(chrono::milliseconds(100));
                             logMemoryState(totalInstructionsExecuted);
                         }
                         if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
@@ -74,11 +74,11 @@ private:
                         }
 
                         else {
-                            /*if (currentProcess->getMemoryAddress() != nullptr) {
-                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired());
+                            if (currentProcess->getMemoryAddress() != nullptr) {
+                                memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
-                            }*/
+                            }
                             currentProcess->assignCore(-1);
                             available = true;
                         }
@@ -334,7 +334,7 @@ public:
 	int startProcess(shared_ptr<process> proc) {
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
-				cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
+				//cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
                 proc->assignCore(i);
                 cpuWorkers[i]->assignScreen(proc);
                 return -10;

@@ -83,7 +83,7 @@ public:
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
-				cout << "Process " << p->getProcessName() << " added to the queue" << endl;
+				//cout << "Process " << p->getProcessName() << " added to the queue" << endl;
             }
             //if (prevCycleCount != cycleCount) {
 
@@ -97,7 +97,9 @@ public:
                         continue;
                     }
                 }
-
+				if (currentProcess == nullptr) {
+					continue;
+				}
                 if (!currentProcess->hasMemoryAssigned()) {
                     response = cpuManager->assignMemory(currentProcess);
 					//cout << "Current Process " << currentProcess->getProcessName() <<  " Response is " << response << endl;

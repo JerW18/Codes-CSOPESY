@@ -166,7 +166,7 @@ public:
                 return;
             }
         }
-        cout << "Process " << processName << " not found." << endl;
+       // cout << "Process " << processName << " not found." << endl;
     }
 
     void reattachProcess(string processName, ull id) {
@@ -185,7 +185,7 @@ public:
                 return;
             }
         }
-        cout << "Process " << processName << " not found." << endl;
+        //cout << "Process " << processName << " not found." << endl;
     }
 
     void listProcess() {

@@ -115,7 +115,7 @@ public:
             
             if (temp == nullptr) {
                 // Swap out the oldest process if allocation failed
-                replacedProncessName = swapOutOldestProcess();
+                replacedProncessName = swapOutOldestProcess(strategy);
                 temp = allocateFirstFit(size, processName);  // Retry allocation after swapping
             }
             if (temp != nullptr) {
@@ -133,7 +133,7 @@ public:
 
             if (temp == nullptr) {
                 // Swap out the oldest process if allocation failed
-                replacedProcessName = swapOutOldestProcess();
+                replacedProcessName = swapOutOldestProcess(strategy);
                 //cout << replacedProcessName << " was swapped out to make room for new process." << endl;
                 temp = allocatePaging(size, processName);  // Retry allocation after swapping
             }
@@ -186,8 +186,6 @@ public:
         // Allocate frames from the free frame list
         for (size_t i = 0; i < pagesNeeded; ++i) {
             if (freeFrameList.empty()) {
-				//printFreeFrameList();
-                //cout << "Not enough free frames, allocation fails" << endl;
 
                 // Clean up partially allocated frames
                 for (size_t frameIndex : allocatedFrames) {
@@ -214,7 +212,7 @@ public:
             size_t pageNumber = pageTable.getNextFreePage();  // Get the next free page number
            //  cout << "Page number: " << pageNumber << "Number of Processes " << this->numOfProcesses << endl;
             if (pageNumber == SIZE_MAX) {
-                cout << "Page table is full, allocation fails" << endl;
+                //cout << "Page table is full, allocation fails" << endl;
 
                 // Clean up partially allocated resources
                 for (size_t frameIndex : allocatedFrames) {
@@ -244,8 +242,7 @@ public:
 		cout << endl;
     }
 
-    string swapOutOldestProcess() {
-        //cout << "is empty? " << processAges.empty() << endl;
+    string swapOutOldestProcess(string strategy) {
         if (processAges.empty()) return "";
 
         // Find the oldest process
@@ -258,7 +255,7 @@ public:
             }
         }
 
-        // Deallocate the oldest process
+        // Deallocate all frames for the oldest process
         for (size_t i = 0; i < allocationMap.size(); i++) {
             if (allocationMap[i].isAllocated && allocationMap[i].processName == oldestProcess) {
                 allocationMap[i].isAllocated = false;
@@ -266,45 +263,38 @@ public:
             }
         }
 
-		//if using paging, deallocate the pages as well and return them to the free list
-        if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
-			auto& allocatedPages = processPageMapping[oldestProcess];  // Get all pages for the process
-
-			// Iterate through all pages allocated to this process
-			for (size_t pageNumber : allocatedPages) {
-				size_t frameNumber = pageTable.getFrame(pageNumber);  // Get the frame mapped to this page
-
-				if (frameNumber == SIZE_MAX) {
-					// Skip if the page was already deallocated (should not happen unless corrupted)
-					continue;
-				}
-
-				// Invalidate the page mapping in the page table
-				pageTable.removeMapping(pageNumber);
-
-				// Mark the frame as free and return it to the free list
-				if (frameNumber < allocationMap.size()) {
-					allocationMap[frameNumber].isAllocated = false;
-					allocationMap[frameNumber].processName = "";
-				}
-				freeFrameList.push(frameNumber);  // Return frame to the free list
-			}
-
-			// Remove the process from the process page mapping
-			processPageMapping.erase(oldestProcess);
+        // Handle paging strategy
+        if (strategy == "Paging") {
+            if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
+                auto& allocatedPages = processPageMapping[oldestProcess];
+                for (size_t pageNumber : allocatedPages) {
+                    size_t frameNumber = pageTable.getFrame(pageNumber);
+                    if (frameNumber != SIZE_MAX) {
+                        // Free the frame and update allocation map
+                        pageTable.removeMapping(pageNumber);
+                        allocationMap[frameNumber].isAllocated = false;
+                        allocationMap[frameNumber].processName = "";
+                        freeFrameList.push(frameNumber);
+                    }
+                }
+                processPageMapping.erase(oldestProcess);
+            }
         }
 
-        // Remove the process from the age tracker
+        // Remove from processAges
         processAges.erase(oldestProcess);
+
         numOfProcesses--;
-		//cout << "Swapped out process " << oldestProcess << " to make room for new process." << endl;
-		return oldestProcess;
+        return oldestProcess;
     }
 
 
+
+
     void deallocate(void* ptr, size_t size, string strategy, string processName) {
+        lock_guard<mutex> lock(mtx);
 		if (strategy == "Flat Memory") {
-            lock_guard<mutex> lock(mtx);
+            
             void* temp = &memory[0];
             size_t index = static_cast<char*>(ptr) - static_cast<char*>(temp);
 
@@ -335,7 +325,6 @@ public:
             }
 		}
         else if (strategy == "Paging") {
-            lock_guard<mutex> lock(mtx);
 
             // Ensure the process exists in the page mapping
             if (processPageMapping.find(processName) == processPageMapping.end()) {

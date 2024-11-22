@@ -253,6 +253,9 @@ void initialize() {
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
+        // Comment out to force flat mem
+        // memType = "Flat Memory";
+
         memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType);
         
