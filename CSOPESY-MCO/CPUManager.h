@@ -307,37 +307,41 @@ public:
         ull pos;
         string temp;
         if (!proc->hasMemoryAssigned()) {
+			//cout << memType << endl;
             pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName());
             if (allocatedMemory.first) {
                 proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
                 proc->setMemoryAssigned(true);
 				if (allocatedMemory.second == "") {
+                    //process did not kick anything out
 					return -1;
 				}
                 pos = allocatedMemory.second.find('_');
 				temp = allocatedMemory.second.substr(2);
-                //cout << temp;
                 return stoi(temp);
             }
             else {
+                //memory allocation failed
                 return -100;
             }
 		}
 		else {
-			return 1;
+            //process has already has mem assigned
+			return -2;
 		}
     }
         
 	int startProcess(shared_ptr<process> proc) {
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
+				cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
                 proc->assignCore(i);
                 cpuWorkers[i]->assignScreen(proc);
-                return 1;
+                return -10;
                 //success
             }
         }
-        return 0;
+        return -11;
     }
 
 

@@ -78,10 +78,12 @@ public:
         shared_ptr<process> currentProcess = nullptr;
         int response = 0;
         int prevCycleCount = cycleCount;
+		boolean flag = true;
         while (true) {
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
+				cout << "Process " << p->getProcessName() << " added to the queue" << endl;
             }
             //if (prevCycleCount != cycleCount) {
 
@@ -95,41 +97,76 @@ public:
                         continue;
                     }
                 }
-                response = cpuManager->assignMemory(currentProcess);
-				//cout << "Response: " << response << endl;
 
-                if (response > -1) {
-                    // process was preempted and kicked out of the queue 
+                if (!currentProcess->hasMemoryAssigned()) {
+                    response = cpuManager->assignMemory(currentProcess);
+					//cout << "Current Process " << currentProcess->getProcessName() <<  " Response is " << response << endl;
+                }
+                if (response == -100) {
+					//process was not assigned memory
+					lock_guard<mutex> lock(mtx);
+					processes.push_front(currentProcess);
+					continue;
+                }
+                else if (response == -1){
+                    //process was given memory without any preempt.
+					//response = cpuManager->startProcess(currentProcess);
+                }
+                else if (response > -1) {
+                    // a process was preempted and kicked out of the queue 
                     // find the process that was kicked out and tell it that it has no memory assigned
-
+                    //lock_guard<mutex> lock(mtx);
                     for (auto& p : processes) {
                         if (p->getId() == response) {
+                            //process found
+                            lock_guard<mutex> lock(mtx);
                             p->setMemoryAssigned(false);
-							//allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
+							allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
 							p->assignMemoryAddress(nullptr);
-							backingStore.push_back(p);
-							p->assignCore(-1);
+                            if (!p->isFinished()) {
+                                backingStore.push_back(p);
+                                //processes.push_back(currentProcess);
+                            }
+							//p->assignCore(-1);
+                            flag = true;
                             break;
                         }
-                        processes.push_back(p);
+                        else {
+							//process not found because it is still in the cpu
+                            flag = false;
+							this_thread::sleep_for(chrono::milliseconds(50));
+                        }
                     }
-					processes.push_back(currentProcess);
-					continue;
+					if (flag == false) {
+						//process not found in the deque. add current process back to the deque and try again.
+						lock_guard<mutex> lock(mtx);
+						processes.push_front(currentProcess);
+						cv.notify_all();
+                        continue;
+					}
                     
                 }
 
-                if (response != -100) {
+                if (flag && currentProcess->hasMemoryAssigned()) {
+                    //process has memory assigned and the other process was preempted and deallocated successful
                     response = cpuManager->startProcess(currentProcess);
+                    if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+						//no cpu available
+                        lock_guard<mutex> lock(mtx);
+                        processes.push_front(currentProcess);
+                        cv.notify_all();
+                    }
                 }
 			    
                 
 
-                if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                /*if (  response != -10 && response < 0 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                    cout << "here";
                     lock_guard<mutex> lock(mtx);
                     processes.push_front(currentProcess);
                     cv.notify_all();
-                }
-                response = -3;
+                }*/
+                //response = -3;
                 //prevCycleCount = cycleCount;
             //}
         }

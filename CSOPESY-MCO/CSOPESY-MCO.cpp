@@ -153,7 +153,7 @@ void readConfig(const string& filename) {
                     delaysPerExec = 0;
                 }
             }
-            else if (key == "max-overaall-mem") {
+            else if (key == "max-overall-mem") {
 				maxOverallMem = stoull(value);
 				if (maxOverallMem < 2 || maxOverallMem > 4294967296ULL) {
 					cout << "Error: max-overall-mem must be between 1 and 2^32. Using default value of 16384.\n" << endl;
@@ -552,7 +552,16 @@ void exitProgram() {
 }
 
 
+void rrq() {
+	/*for (auto& p : processScheduler->getReadyQueue()) {
+		cout << p->getProcessName() << endl;
+	}*/
+    memoryAllocator->printFreeFrameList();
+}
+
 map<string, void (*)()> commands = {
+    {"rrq", rrq},
+    {"ini", initialize},
     {"sst", schedStart},
 	{"ssp", schedStop},
     {"display-config", displayConfig},

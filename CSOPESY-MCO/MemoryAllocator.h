@@ -134,6 +134,7 @@ public:
             if (temp == nullptr) {
                 // Swap out the oldest process if allocation failed
                 replacedProcessName = swapOutOldestProcess();
+                //cout << replacedProcessName << " was swapped out to make room for new process." << endl;
                 temp = allocatePaging(size, processName);  // Retry allocation after swapping
             }
 
@@ -185,6 +186,7 @@ public:
         // Allocate frames from the free frame list
         for (size_t i = 0; i < pagesNeeded; ++i) {
             if (freeFrameList.empty()) {
+				//printFreeFrameList();
                 //cout << "Not enough free frames, allocation fails" << endl;
 
                 // Clean up partially allocated frames
@@ -232,9 +234,18 @@ public:
         return &memory[allocatedFrames[0] * frameSize];
     }
 
-
+    void printFreeFrameList() {
+		cout << "Free Frame List: ";
+		queue<size_t> temp = freeFrameList;
+		while (!temp.empty()) {
+			cout << temp.front() << " ";
+			temp.pop();
+		}
+		cout << endl;
+    }
 
     string swapOutOldestProcess() {
+        //cout << "is empty? " << processAges.empty() << endl;
         if (processAges.empty()) return "";
 
         // Find the oldest process
@@ -253,6 +264,34 @@ public:
                 allocationMap[i].isAllocated = false;
                 allocationMap[i].processName = "";
             }
+        }
+
+		//if using paging, deallocate the pages as well and return them to the free list
+        if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
+			auto& allocatedPages = processPageMapping[oldestProcess];  // Get all pages for the process
+
+			// Iterate through all pages allocated to this process
+			for (size_t pageNumber : allocatedPages) {
+				size_t frameNumber = pageTable.getFrame(pageNumber);  // Get the frame mapped to this page
+
+				if (frameNumber == SIZE_MAX) {
+					// Skip if the page was already deallocated (should not happen unless corrupted)
+					continue;
+				}
+
+				// Invalidate the page mapping in the page table
+				pageTable.removeMapping(pageNumber);
+
+				// Mark the frame as free and return it to the free list
+				if (frameNumber < allocationMap.size()) {
+					allocationMap[frameNumber].isAllocated = false;
+					allocationMap[frameNumber].processName = "";
+				}
+				freeFrameList.push(frameNumber);  // Return frame to the free list
+			}
+
+			// Remove the process from the process page mapping
+			processPageMapping.erase(oldestProcess);
         }
 
         // Remove the process from the age tracker
@@ -300,6 +339,7 @@ public:
 
             // Ensure the process exists in the page mapping
             if (processPageMapping.find(processName) == processPageMapping.end()) {
+				//cout << "Error: Process '" << processName << "' not found in the page mapping." << endl;
                 return;
             }
 
