@@ -50,7 +50,7 @@ thread schedulerThread;
 CPUManager* cpuManager;
 Scheduler* processScheduler;
 thread processThread;
-unique_ptr<MemoryAllocator> memoryAllocator;
+MemoryAllocator* memoryAllocator;
 
 bool inScreen = false;
 bool initialized = false; 
@@ -253,15 +253,15 @@ void initialize() {
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
-        memoryAllocator = make_unique<MemoryAllocator>(maxOverallMem, memPerFrame);
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, *memoryAllocator, addressof(testMtx), *&cycleCount, memType);
+        memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType);
         
-        processScheduler = new Scheduler(cpuManager, *memoryAllocator, *&cycleCount);
+        processScheduler = new Scheduler(cpuManager, memoryAllocator, *&cycleCount, memType);
 
         //processScheduler = new Scheduler(cpuManager, *memoryAllocator, &cycleCount);
 	
 
-        sm = new screenManager(&mtx, *memoryAllocator, memType);
+        sm = new screenManager(&mtx, memoryAllocator, memType);
 
 
         schedulerThread = (schedulerType == "fcfs")
@@ -604,11 +604,18 @@ void test() {
     }
 }
 
+
 int main() {
     g.printHeader();
 
     thread testThread(test);
     testThread.join();
+
+	delete sm;
+	delete cpuManager;
+	delete processScheduler;
+    delete memoryAllocator;
+
 
     return 0;
 }

@@ -26,7 +26,7 @@ private:
     ull delaysPerExec;
     string schedulerType;
     mutex mtx;
-    MemoryAllocator &memoryAllocator;
+    MemoryAllocator *memoryAllocator;
 	mutex* mainMtxAddress;
     bool isStarted = false;
 	string memType;
@@ -42,29 +42,29 @@ private:
             while (true) {
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
-                    if (!currentProcess->hasMemoryAssigned()) {
-						lock_guard<mutex> lock(*mainMtxAddress);
+                    /*if (!currentProcess->hasMemoryAssigned()) {
+						//lock_guard<mutex> lock(*mainMtxAddress);
                         currentProcess->assignCore(-1); // Unassign core
                         available = true;
                         currentProcess = nullptr;
                         continue;
-                    }
+                    }*/
 
                     unique_lock<mutex> lock(mtx);
                     if (schedulerType == "rr") {
                         while (instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 
-                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
+                            this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
                             currentProcess->incrementInstructionIndex();
                             instructionsExecuted++;
                             totalInstructionsExecuted++;
-                            this_thread::sleep_for(chrono::milliseconds(100));
+                            this_thread::sleep_for(chrono::milliseconds(1000));
                             logMemoryState(totalInstructionsExecuted);
                         }
                         if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                             if (currentProcess->getMemoryAddress() != nullptr) {
-                                memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
+                                memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                             }
@@ -94,7 +94,7 @@ private:
                         }
 
                         available = true;
-                        memoryAllocator.deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
+                        memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                         currentProcess = nullptr;
 
                     }
@@ -135,15 +135,15 @@ private:
             return;
         }
 
-        int numProcessesInMemory = memoryAllocator.getNumOfProcesses();  
-        int totalExternalFragmentation = memoryAllocator.getExternalFragmentation();  
-        auto memoryState = memoryAllocator.getMemoryState(); 
+        int numProcessesInMemory = memoryAllocator->getNumOfProcesses();  
+        int totalExternalFragmentation = memoryAllocator->getExternalFragmentation();  
+        auto memoryState = memoryAllocator->getMemoryState(); 
 
         outFile << "Timestamp: " << timestamp << "\n";
         outFile << "Number of processes in memory: " << numProcessesInMemory << "\n";
         outFile << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
 
-        outFile << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n\n"; 
+        outFile << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n"; 
         
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
             if (!it->isFree) {
@@ -177,15 +177,15 @@ private:
 
         std::string timestamp = getCurrentTimestamp();
 
-        int numProcessesInMemory = memoryAllocator.getNumOfProcesses();
-        int totalExternalFragmentation = memoryAllocator.getExternalFragmentation();
-        auto memoryState = memoryAllocator.getMemoryState();
+        int numProcessesInMemory = memoryAllocator->getNumOfProcesses();
+        int totalExternalFragmentation = memoryAllocator->getExternalFragmentation();
+        auto memoryState = memoryAllocator->getMemoryState();
 
         cout << "Timestamp: " << timestamp << "\n";
         cout << "Number of processes in memory: " << numProcessesInMemory << "\n";
         cout << "Total external fragmentation in KB: " << totalExternalFragmentation << "\n\n";
 
-        cout << "----end---- = " << memoryAllocator.getTotalMemorySize() << "\n\n\n";
+        cout << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n\n";
 
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
             if (!it->isFree) {
@@ -219,11 +219,12 @@ public:
         workerThread.detach();
     }*/
 
-    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, 
+    CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator, 
 		mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec),
-        schedulerType(schedulerType), memoryAllocator(allocator), cycleCount(cycleCount), memType(memType) {
+        schedulerType(schedulerType), cycleCount(cycleCount), memType(memType) {
         this->mainMtxAddress = mainMtxAddress;
+		this->memoryAllocator = allocator;
         workerThread = thread(&CPUWorker::run, this);
         workerThread.detach();
     }
@@ -262,7 +263,7 @@ private:
     vector<CPUWorker*> cpuWorkers;
     int numCpus;
     mutex mtx;
-    MemoryAllocator& allocator;
+    MemoryAllocator* allocator;
     mutex* mainMtxAddress;
 	string memType;
 	volatile ull& cycleCount;
@@ -275,10 +276,11 @@ public:
         }
     }*/
 
-    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator,
+    CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
                 mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
-        : numCpus(numCpus), allocator(allocator), cycleCount(cycleCount), memType(memType){
+        : numCpus(numCpus), cycleCount(cycleCount), memType(memType){
         this->mainMtxAddress = mainMtxAddress;
+		this->allocator = allocator;
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress, *&cycleCount, memType));
         }
@@ -305,8 +307,7 @@ public:
         ull pos;
         string temp;
         if (!proc->hasMemoryAssigned()) {
-           
-            pair <void*, string> allocatedMemory = allocator.allocate(proc->getMemoryRequired(),memType, proc->getProcessName());
+            pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName());
             if (allocatedMemory.first) {
                 proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
                 proc->setMemoryAssigned(true);
@@ -323,7 +324,7 @@ public:
             }
 		}
 		else {
-			return -100;
+			return 1;
 		}
     }
         

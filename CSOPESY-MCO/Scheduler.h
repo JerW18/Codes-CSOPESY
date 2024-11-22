@@ -15,8 +15,9 @@ private:
     CPUManager* cpuManager;
     mutex mtx;
     condition_variable cv;
-    MemoryAllocator& allocator;
+    MemoryAllocator* allocator;
     volatile ull& cycleCount;
+    string memType;
 public:
     deque<shared_ptr<process>> processes;
 	deque<shared_ptr<process>> backingStore;
@@ -29,9 +30,10 @@ public:
     // {
     //     this->cpuManager = cpuManager;
     // }
-    Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator, volatile ull& cycleCount) : allocator(allocator), cycleCount(cycleCount)
+	Scheduler(CPUManager* cpuManager, MemoryAllocator* allocator, volatile ull& cycleCount, string memType) : cycleCount(cycleCount), memType(memType)
     {
         this->cpuManager = cpuManager;
+		this->allocator = allocator;
     }
 
     void addProcess(shared_ptr<process> process) {
@@ -83,7 +85,6 @@ public:
             }
             //if (prevCycleCount != cycleCount) {
 
-
                 {
                     unique_lock<mutex> lock(mtx);
                     if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes.empty(); })) {
@@ -98,21 +99,30 @@ public:
 				//cout << "Response: " << response << endl;
 
                 if (response > -1) {
-                    lock_guard<mutex> lock(mtx);
                     // process was preempted and kicked out of the queue 
                     // find the process that was kicked out and tell it that it has no memory assigned
+
                     for (auto& p : processes) {
                         if (p->getId() == response) {
-							p->setMemoryAssigned(false);
+                            p->setMemoryAssigned(false);
+							//allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
 							p->assignMemoryAddress(nullptr);
 							backingStore.push_back(p);
+							p->assignCore(-1);
                             break;
                         }
+                        processes.push_back(p);
                     }
 					processes.push_back(currentProcess);
+					continue;
+                    
+                }
+
+                if (response != -100) {
+                    response = cpuManager->startProcess(currentProcess);
                 }
 			    
-                response = cpuManager->startProcess(currentProcess);
+                
 
                 if (response != 1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
                     lock_guard<mutex> lock(mtx);

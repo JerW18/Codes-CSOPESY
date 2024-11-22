@@ -31,10 +31,14 @@ struct PageTableEntry {
 class PageTable {
 private:
     vector<PageTableEntry> table;
+    queue<size_t> freePageList;  // Queue to track free page numbers
 
 public:
     PageTable(size_t totalPages) {
         table.resize(totalPages); // Preallocate page table
+        for (size_t i = 0; i < totalPages; i++) {
+            freePageList.push(i);  // Initialize all pages as free
+        }
     }
 
     void addMapping(size_t pageNumber, size_t frameNumber) {
@@ -50,31 +54,26 @@ public:
     }
 
     void removeMapping(size_t pageNumber) {
-        if (pageNumber < table.size()) {
+        if (pageNumber < table.size() && table[pageNumber].isValid) {
             table[pageNumber].isValid = false;
+            freePageList.push(pageNumber);  // Reclaim the page number
         }
     }
 
-	// get size of page table
-	size_t size() {
-		return table.size();
-	}
+    size_t getNextFreePage() {
+        if (freePageList.empty()) {
+            return SIZE_MAX; // No free pages available
+        }
+        size_t freePage = freePageList.front();
+        freePageList.pop();
+        return freePage;
+    }
 
-	PageTableEntry& operator[](size_t index) {
-		return table[index];
-	}
-
-    // get size of occupied page table
-	size_t getOccupiedSize() {
-		size_t occupiedSize = 0;
-		for (size_t i = 0; i < table.size(); i++) {
-			if (table[i].isValid) {
-				occupiedSize++;
-			}
-		}
-		return occupiedSize;
-	}
+    size_t size() {
+        return table.size();
+    }
 };
+
 
 
 
@@ -180,39 +179,50 @@ public:
     }
 
     void* allocatePaging(size_t size, string processName) {
-        size_t pagesNeeded = (size + frameSize - 1) / frameSize;  // Calculate number of pages needed
+        size_t pagesNeeded = (size + frameSize - 1) / frameSize;  // Calculate the number of pages needed
         vector<size_t> allocatedFrames;
 
         // Allocate frames from the free frame list
         for (size_t i = 0; i < pagesNeeded; ++i) {
             if (freeFrameList.empty()) {
-				// cout << "Not enough free frames, allocation fails" << endl;
-                // Not enough free frames, allocation fails
-                return nullptr;
+                //cout << "Not enough free frames, allocation fails" << endl;
+
+                // Clean up partially allocated frames
+                for (size_t frameIndex : allocatedFrames) {
+                    freeFrameList.push(frameIndex);
+                }
+
+                return nullptr;  // Allocation failed
             }
-            size_t frameIndex = freeFrameList.front();  // Get the front frame
-            freeFrameList.pop();  // Remove the front frame from the queue
-			allocatedFrames.push_back(frameIndex);  // Add the frame to the allocated list
-            // Update the allocation map
+
+            size_t frameIndex = freeFrameList.front();  // Get the next available frame
+            freeFrameList.pop();
+            allocatedFrames.push_back(frameIndex);
+
             if (frameIndex < allocationMap.size()) {
                 allocationMap[frameIndex].isAllocated = true;
                 allocationMap[frameIndex].processName = processName;
             }
-            
+
+			//cout << "Allocated frame " << frameIndex << " for process " << processName << endl;
         }
 
         // Map logical pages to physical frames and track the process
         for (size_t i = 0; i < allocatedFrames.size(); i++) {
-            size_t pageNumber = pageTable.getOccupiedSize();  // Calculate page number
-            // stop when the page table is full
-            if (pageTable.getOccupiedSize() == pageTable.size()) {
-                break;
-            }
-			
-			//cout << "Page number: " << pageNumber << "\tnumOfProcesses: " << numOfProcesses << "\toccupied size :" << pageTable.getOccupiedSize() << "\ti: " << i << endl;
-            pageTable.addMapping(pageNumber, allocatedFrames[i]);  // Map page to frame
+            size_t pageNumber = pageTable.getNextFreePage();  // Get the next free page number
+           //  cout << "Page number: " << pageNumber << "Number of Processes " << this->numOfProcesses << endl;
+            if (pageNumber == SIZE_MAX) {
+                cout << "Page table is full, allocation fails" << endl;
 
-			
+                // Clean up partially allocated resources
+                for (size_t frameIndex : allocatedFrames) {
+                    freeFrameList.push(frameIndex);
+                }
+                return nullptr;
+            }
+
+            pageTable.addMapping(pageNumber, allocatedFrames[i]);  // Map page to frame
+            
         }
 
         // Track the pages allocated to the process
@@ -221,6 +231,7 @@ public:
         // Return a pointer to the allocated memory (start of first frame)
         return &memory[allocatedFrames[0] * frameSize];
     }
+
 
 
     string swapOutOldestProcess() {
@@ -284,35 +295,55 @@ public:
                 }
             }
 		}
-        else if(strategy == "Paging"){
+        else if (strategy == "Paging") {
             lock_guard<mutex> lock(mtx);
+
+            // Ensure the process exists in the page mapping
+            if (processPageMapping.find(processName) == processPageMapping.end()) {
+                return;
+            }
+
             auto& allocatedPages = processPageMapping[processName];  // Get all pages for the process
-			for (size_t pageNumber : allocatedPages) {
-				pageTable.removeMapping(pageNumber);  // Remove the page mapping
-                size_t frameNumber = pageTable.getFrame(pageNumber);
-                if (frameNumber != SIZE_MAX) {
-                    // Add the frame back to the free list
-                    freeFrameList.push(frameNumber);
+
+            // Iterate through all pages allocated to this process
+            for (size_t pageNumber : allocatedPages) {
+                size_t frameNumber = pageTable.getFrame(pageNumber);  // Get the frame mapped to this page
+
+                if (frameNumber == SIZE_MAX) {
+                    // Skip if the page was already deallocated (should not happen unless corrupted)
+                    continue;
                 }
 
-                // deallocate the allocation map
-				allocationMap[frameNumber].isAllocated = false;
-                allocationMap[frameNumber].processName = "";
-			}
-			processPageMapping.erase(processName);  // Remove the process from the page mapping
-			numOfProcesses--;
+                // Invalidate the page mapping in the page table
+                pageTable.removeMapping(pageNumber);
 
+                // Mark the frame as free and return it to the free list
+                if (frameNumber < allocationMap.size()) {
+                    allocationMap[frameNumber].isAllocated = false;
+                    allocationMap[frameNumber].processName = "";
+                }
+                freeFrameList.push(frameNumber);  // Return frame to the free list
+            }
 
-			// Remove the process from the age tracker if it exists
-			for (auto it = processAges.begin(); it != processAges.end(); ) {
-				if (it->second == currentAge) {
-					it = processAges.erase(it);
-				}
-				else {
-					++it;
-				}
-			}
-		}
+            // Remove the process from the process page mapping
+            processPageMapping.erase(processName);
+
+            // Update process count
+            numOfProcesses--;
+
+            // Remove the process from the age tracker, if applicable
+            for (auto it = processAges.begin(); it != processAges.end();) {
+                if (it->first == processName) {
+                    it = processAges.erase(it);
+                }
+                else {
+                    ++it;
+                }
+            }
+
+            //cout << "Process '" << processName << "' deallocated successfully." << endl;
+        }
+
 
 	}
 
@@ -425,5 +456,6 @@ public:
         cout << "Memory vector size should be: " << memory.size() << endl;
         cout << "Allocation map size should be: " << allocationMap.size() << endl;
     }
+
 };
 

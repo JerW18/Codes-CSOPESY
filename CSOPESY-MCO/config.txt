@@ -5,6 +5,6 @@ batch-process-freq 1
 min-ins 10
 max-ins 10
 delay-per-exec 1
-max-overall-mem 16384
+max-overall-mem 12288
 mem-per-frame 16
 mem-per-proc 4096
