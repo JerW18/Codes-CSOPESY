@@ -115,60 +115,12 @@ public:
 				if (currentProcess == nullptr) {
 					continue;
 				}
-
-     //           if (!currentProcess->hasMemoryAssigned()) {
-     //               response = cpuManager->assignMemory(currentProcess);
-					////cout << "Current Process " << currentProcess->getProcessName() <<  " Response is " << response << endl;
-     //           }
-
-     //           if (response == -100) {
-					////process was not assigned memory
-					//lock_guard<mutex> lock(mtx);
-					//processes.push_front(currentProcess);
-					//continue;
-     //           } else if (response == -1){
-     //               //process was given memory without any preempt.
-					////response = cpuManager->startProcess(currentProcess);
-     //           } else if (response > -1) {
-     //               // a process was preempted and kicked out of the queue 
-     //               // find the process that was kicked out and tell it that it has no memory assigned
-     //               //lock_guard<mutex> lock(mtx);
-     //               for (auto& p : processes) {
-     //                   if (p->getId() == response) {
-     //                       //process found
-     //                       lock_guard<mutex> lock(mtx);
-     //                       p->setMemoryAssigned(false);
-					//		allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
-					//		p->assignMemoryAddress(nullptr);
-     //                       if (!p->isFinished()) {
-     //                           backingStore.push_back(p);
-     //                       }
-					//		//p->assignCore(-1);
-     //                       flag = true;
-     //                       break;
-     //                   }
-     //                   else {
-					//		//process not found because it is still in the cpu
-     //                       flag = false;
-     //                   }
-     //               }
-					//
-     //               if (flag == false) {
-					//	//process not found in the deque. add current process back to the deque and try again.
-					//	lock_guard<mutex> lock(mtx);
-					//	processes.push_front(currentProcess);
-					//	this_thread::sleep_for(chrono::milliseconds(1));
-					//	cv.notify_all();
-     //                   continue;
-					//}
-     //               
-     //           }
-
                 //if (flag && currentProcess->hasMemoryAssigned()) {
                     //process has memory assigned and the other process was preempted and deallocated successful
                     response = cpuManager->startProcess(currentProcess);
                     if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
                         //no cpu available
+                        //cout << currentProcess->getProcessName() << " here";
                         lock_guard<mutex> lock(mtx);
                         processes->push_front(currentProcess);
                         cv.notify_all();

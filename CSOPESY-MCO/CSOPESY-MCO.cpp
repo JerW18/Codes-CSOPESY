@@ -241,7 +241,7 @@ void displayConfig() {
 	cout << "min-mem-per-proc: " << minMemPerProcess << endl;
 	cout << "mem-per-proc: " << memPerProc << endl;
 	cout << "total-frames: " << totalFrames << endl; 
-    cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n" << endl;
+    cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n";
 	cout << "mem-type: " << memType << "\n" << endl;
 }
 namespace fs = std::filesystem;

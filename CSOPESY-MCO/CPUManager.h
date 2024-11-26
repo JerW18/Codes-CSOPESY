@@ -79,11 +79,11 @@ private:
 
                         else {
                             if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
-                                //cout << "FLAT " << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                             }
+							//cout << currentProcess->getProcessName() << " is done running." << endl;
                             currentProcess->assignCore(-1);
                             available = true;
                         }
@@ -105,7 +105,7 @@ private:
                     }
                 }
                 else {
-                    this_thread::sleep_for(chrono::milliseconds(1000));
+                    this_thread::sleep_for(chrono::milliseconds(100));
                 }
             }
         }
@@ -276,14 +276,6 @@ private:
     deque<shared_ptr<process>>* backingStore;
 
 public:
-    /*CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
-        : numCpus(numCpus), allocator(allocator)  {
-		this->mainMtxAddress = mainMtxAddress;
-        for (int i = 0; i < numCpus; i++) {
-            cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress));
-        }
-    }*/
-
     CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
                 mutex* mainMtxAddress, volatile ull& cycleCount, string memType, deque<shared_ptr<process>>* processes, deque<shared_ptr<process>>* backingStore)
         : numCpus(numCpus), cycleCount(cycleCount), memType(memType){
@@ -328,6 +320,7 @@ public:
 				}
                 pos = allocatedMemory.second.find('_');
 				temp = allocatedMemory.second.substr(2);
+				//cout << "Process " << proc->getProcessName() << " kicked out process " << temp << " from memory" << endl;
                 return stoi(temp);
             }
             else {
@@ -352,11 +345,13 @@ public:
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
                 // Step 1: Check and assign memory if not already assigned
                 if (!proc->hasMemoryAssigned()) {
+					//cout << "Assigning memory to " << proc->getProcessName() << endl;
                     response = assignMemory(proc);
 
                     if (response == -100) {
                         // Memory assignment failed, requeue the process
                         {
+                            //cout << proc->getProcessName() << " here1";
                             lock_guard<mutex> lock(mtx);
                             processes->push_front(proc);
                         }
@@ -364,12 +359,16 @@ public:
                     }
                     else if (response > -1) {
                         // A process was preempted, handle the preempted process
+
+                        lock_guard<mutex> lock(mtx);
                         handlePreemptedProcess(response);
                     }
                 }
 
                 if (response != -100) {
                     // Step 2: Assign the process to the CPU core
+
+                    lock_guard<mutex> lock(mtx);
                     proc->assignCore(i);
                     cpuWorkers[i]->assignScreen(proc);
                     return -10; // Process successfully started
@@ -379,18 +378,21 @@ public:
 
         // Step 3: No cores available, requeue the process
         {
-            lock_guard<mutex> lock(mtx);
-            processes->push_front(proc);
+			//cout << proc->getProcessName() << " here2";
+            /*lock_guard<mutex> lock(mtx);
+            processes->push_front(proc);*/
         }
         return response;
     }
 
     // Helper to handle preempted process
     void handlePreemptedProcess(int preemptedProcessId) {
-
         for (auto& p : *processes) {
-            if (p->getId() == preemptedProcessId) {
-                lock_guard<mutex> lock(mtx);
+            if (p == nullptr)
+                continue;
+            //cout << p->getId() << "|" << preemptedProcessId << " ";
+			if (p->getId() == preemptedProcessId) {
+				//cout << "Process " << p->getProcessName() << " was preempted and deallocated." << endl;
                 p->setMemoryAssigned(false);
                 allocator->deallocate(p->getMemoryAddress(), p->getMemoryRequired(), memType, p->getProcessName());
                 p->assignMemoryAddress(nullptr);

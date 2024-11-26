@@ -112,6 +112,7 @@ public:
     }
     
     pair<void*, string> allocate(size_t size, string strategy, string processName) {
+		lock_guard<mutex> lock(mtx);
 		pair <void*, string> result;
 		result.first = nullptr;
 		result.second = "";
@@ -261,7 +262,7 @@ public:
             }
         }
 
-        if (strategy == "Paging") {
+        /*if (strategy == "Paging") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
                 auto& allocatedPages = processPageMapping[oldestProcess];
                 for (size_t pageNumber : allocatedPages) {
@@ -278,14 +279,12 @@ public:
                     freeFrameList.push(frameNumber);
                 }
                 processPageMapping.erase(oldestProcess);
-                /*numOfProcesses--;
-                return oldestProcess;*/
             }
         }
         processAges.erase(oldestProcess);
         numOfProcesses--;
-        return oldestProcess;
-        /*if (strategy == "Paging") {
+        return oldestProcess;*/
+        if (strategy == "Paging") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
                 auto& allocatedPages = processPageMapping[oldestProcess];
                 for (size_t pageNumber : allocatedPages) {
@@ -302,7 +301,7 @@ public:
         }
         processAges.erase(oldestProcess);
         numOfProcesses--;
-        return oldestProcess;*/
+        return oldestProcess;
     }
 
 
