@@ -210,7 +210,7 @@ void displayConfig() {
 	cout << "mem-per-proc: " << memPerProc << endl;
 	cout << "total-frames: " << totalFrames << endl; 
     cout << "use-flat: " << (useFlat ? "yes" : "no") << "\n" << endl;
-
+	cout << "mem-type: " << memType << "\n" << endl;
 }
 namespace fs = std::filesystem;
 void clearLogFiles() {
@@ -250,6 +250,8 @@ void initialize() {
         else {
             memType = "Paging";
         }
+
+		//memType = "Flat Memory";
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
@@ -560,6 +562,7 @@ void rrq() {
 		cout << p->getProcessName() << endl;
 	}*/
     memoryAllocator->printFreeFrameList();
+	memoryAllocator->printAllocationMap();
 }
 
 map<string, void (*)()> commands = {

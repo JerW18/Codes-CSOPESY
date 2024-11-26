@@ -232,15 +232,7 @@ public:
         return &memory[allocatedFrames[0] * frameSize];
     }
 
-    void printFreeFrameList() {
-		cout << "Free Frame List: ";
-		queue<size_t> temp = freeFrameList;
-		while (!temp.empty()) {
-			cout << temp.front() << " ";
-			temp.pop();
-		}
-		cout << endl;
-    }
+    
 
     string swapOutOldestProcess(string strategy) {
         if (processAges.empty()) return "";
@@ -263,14 +255,35 @@ public:
             }
         }
 
-        // Handle paging strategy
         if (strategy == "Paging") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
                 auto& allocatedPages = processPageMapping[oldestProcess];
                 for (size_t pageNumber : allocatedPages) {
                     size_t frameNumber = pageTable.getFrame(pageNumber);
+                    if (frameNumber == SIZE_MAX) {
+                        continue;
+                    }
+                    pageTable.removeMapping(pageNumber);
+                    if (frameNumber < allocationMap.size()) {
+                        allocationMap[frameNumber].isAllocated = false;
+                        allocationMap[frameNumber].processName = "";
+                    }
+                    freeFrameList.push(frameNumber);
+                }
+                processPageMapping.erase(oldestProcess);
+                /*numOfProcesses--;
+                return oldestProcess;*/
+            }
+        }
+        processAges.erase(oldestProcess);
+        numOfProcesses--;
+        return oldestProcess;
+        /*if (strategy == "Paging") {
+            if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
+                auto& allocatedPages = processPageMapping[oldestProcess];
+                for (size_t pageNumber : allocatedPages) {
+                    size_t frameNumber = pageTable.getFrame(pageNumber);
                     if (frameNumber != SIZE_MAX) {
-                        // Free the frame and update allocation map
                         pageTable.removeMapping(pageNumber);
                         allocationMap[frameNumber].isAllocated = false;
                         allocationMap[frameNumber].processName = "";
@@ -280,12 +293,9 @@ public:
                 processPageMapping.erase(oldestProcess);
             }
         }
-
-        // Remove from processAges
         processAges.erase(oldestProcess);
-
         numOfProcesses--;
-        return oldestProcess;
+        return oldestProcess;*/
     }
 
 
@@ -456,6 +466,16 @@ public:
         return memoryState;
     }
 
+    void printFreeFrameList() {
+        cout << "Free Frame List: ";
+        queue<size_t> temp = freeFrameList;
+        while (!temp.empty()) {
+            cout << temp.front() << " ";
+            temp.pop();
+        }
+        cout << endl;
+    }
+
 
     void printMemory() {
         for (size_t i = 0; i < memory.size(); i++) {
@@ -475,8 +495,7 @@ public:
     }
     void printAllocationMap() {
         for (size_t i = 0; i < allocationMap.size(); i++) {
-            cout << allocationMap[i].isAllocated;
-            //cout << allocationMap[i].processName;
+            cout << allocationMap[i].isAllocated << "|" << allocationMap[i].processName << " . ";
         }
         cout << endl;
     }

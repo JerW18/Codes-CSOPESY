@@ -91,6 +91,11 @@ public:
                     unique_lock<mutex> lock(mtx);
                     if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes.empty(); })) {
                         currentProcess = processes.front();
+						if (currentProcess != nullptr && currentProcess->isFinished()) {
+							//memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
+							processes.pop_front();
+							continue;
+						}
                         processes.pop_front();
                     }
                     else {
@@ -127,7 +132,6 @@ public:
 							p->assignMemoryAddress(nullptr);
                             if (!p->isFinished()) {
                                 backingStore.push_back(p);
-                                //processes.push_back(currentProcess);
                             }
 							//p->assignCore(-1);
                             flag = true;
@@ -136,13 +140,13 @@ public:
                         else {
 							//process not found because it is still in the cpu
                             flag = false;
-							this_thread::sleep_for(chrono::milliseconds(50));
                         }
                     }
 					if (flag == false) {
 						//process not found in the deque. add current process back to the deque and try again.
 						lock_guard<mutex> lock(mtx);
 						processes.push_front(currentProcess);
+						this_thread::sleep_for(chrono::milliseconds(1));
 						cv.notify_all();
                         continue;
 					}

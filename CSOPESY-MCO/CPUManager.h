@@ -74,7 +74,8 @@ private:
                         }
 
                         else {
-                            if (currentProcess->getMemoryAddress() != nullptr) {
+                            if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
+                                //cout << "FLAT " << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
