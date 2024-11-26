@@ -363,6 +363,18 @@ public:
                         lock_guard<mutex> lock(mtx);
                         handlePreemptedProcess(response);
                     }
+
+                   
+                    for (auto it = backingStore->begin(); it != backingStore->end(); it++) {
+                            if ((*it)->getId() == proc->getId()) {
+                                backingStore->erase(it);
+                                // delete the file
+                                std::filesystem::remove("backingstore\\process_" + to_string(proc->getId()) + ".txt");
+                                break;
+                            }
+                        }
+                    
+
                 }
 
                 if (response != -100) {
@@ -399,6 +411,13 @@ public:
 
                 if (!p->isFinished()) {
                     backingStore->push_back(p);
+                    // Create a new file for the process, store process id, current instruction index, and total instructions
+                    // create backing store directory if doesnt exist
+                    std::filesystem::create_directories("backingstore");
+                    ofstream processFile("backingstore\\process_" + to_string(p->getId()) + ".txt");
+                    processFile << "Process ID: " << p->getId() << endl;
+					processFile << "Current Instruction Index: " << p->getInstructionIndex() << endl;
+					processFile << "Total Instructions: " << p->getTotalInstructions() << endl;
                 }
                 break;
             }

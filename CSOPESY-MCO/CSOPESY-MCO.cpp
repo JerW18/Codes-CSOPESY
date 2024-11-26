@@ -267,12 +267,37 @@ void clearLogFiles() {
         cerr << "Filesystem error: " << e.what() << '\n';
     }
 }
+
+void clearBackingStoreFiles() {
+	string logDirectory = "backingstore";
+
+	try {
+		if (!fs::exists(logDirectory) || !fs::is_directory(logDirectory)) {
+			cerr << "Backing store directory does not exist.\n";
+			return;
+		}
+
+		for (const auto& entry : fs::directory_iterator(logDirectory)) {
+			if (entry.is_regular_file()) {
+				const auto& filePath = entry.path();
+				if (filePath.filename().string().rfind("backingstore_", 0) == 0 && filePath.extension() == ".txt") {
+					fs::remove(filePath);
+				}
+			}
+		}
+	}
+	catch (const filesystem::filesystem_error& e) {
+		cerr << "Filesystem error: " << e.what() << '\n';
+	}
+}
 void initialize() {
     if (!initialized) {
         cout << "'initialize' command recognized. Starting scheduler.\n" << endl;
         
 		lock_guard<mutex> lock(mtx);
+        clearBackingStoreFiles();
 		clearLogFiles();
+        
 		readConfig("config.txt");
 		//start cycle thread
 
