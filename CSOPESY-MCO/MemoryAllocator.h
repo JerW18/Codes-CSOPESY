@@ -1,13 +1,17 @@
 #pragma once
+
+#ifndef MEMORY_H
+#define MEMORY_H
+
 #include <vector>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <vector>
 #include "timeStamp.h"
 #include <unordered_map>
 #include <limits.h>
 #include <queue>
+
 using ull = unsigned long long;
 
 using namespace std;
@@ -75,8 +79,6 @@ public:
 };
 
 
-
-
 class MemoryAllocator {
 private:
     vector<char> memory;
@@ -94,6 +96,7 @@ private:
 
     unordered_map<string, int> processAges;
     unordered_map<string, vector<size_t>> processPageMapping;
+
 public:
     mutex mtx;
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
@@ -105,6 +108,7 @@ public:
         for (size_t i = 0; i < totalFrames; ++i) {
             freeFrameList.push(i);  // Add all frames to the free list
         }
+
     }
     
     pair<void*, string> allocate(size_t size, string strategy, string processName) {
@@ -127,8 +131,7 @@ public:
 			result.first = temp;
 			result.second = replacedProncessName;
             return result;
-        }
-        else {
+        } else {
             // Paging allocation logic
             void* temp = allocatePaging(size, processName);
             string replacedProcessName;
@@ -387,8 +390,6 @@ public:
 
             //cout << "Process '" << processName << "' deallocated successfully." << endl;
         }
-
-
 	}
 
 
@@ -491,7 +492,6 @@ public:
         cout << endl;
     }
 
-
     void printMemory() {
         for (size_t i = 0; i < memory.size(); i++) {
             cout << memory[i];
@@ -529,3 +529,4 @@ public:
 	}
 };
 
+#endif

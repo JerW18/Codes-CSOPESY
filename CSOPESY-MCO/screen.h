@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef SCREEN_H
+#define SCREEN_H
+
 #include <windows.h>
 #include <iostream>
 #include <string>
@@ -11,7 +14,6 @@
 #include "global.h"
 #include <mutex>
 #include "MemoryAllocator.h"
-
 
 typedef unsigned long long ull;
 
@@ -242,3 +244,5 @@ public:
     }
     }
 };
+
+#endif

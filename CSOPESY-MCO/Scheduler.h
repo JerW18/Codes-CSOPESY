@@ -1,4 +1,8 @@
 #pragma once
+
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
+
 #include <queue>
 #include "screen.h"
 #include "CPUManager.h"
@@ -18,9 +22,10 @@ private:
     MemoryAllocator* allocator;
     volatile ull& cycleCount;
     string memType;
+    deque<shared_ptr<process>>* processes;
+    deque<shared_ptr<process>>* backingStore;
+
 public:
-    deque<shared_ptr<process>> processes;
-	deque<shared_ptr<process>> backingStore;
 	/*Scheduler(CPUManager* cpuManager, MemoryAllocator& allocator) : allocator(allocator)
     {
         this->cpuManager = cpuManager;
@@ -30,45 +35,48 @@ public:
     // {
     //     this->cpuManager = cpuManager;
     // }
-	Scheduler(CPUManager* cpuManager, MemoryAllocator* allocator, volatile ull& cycleCount, string memType) : cycleCount(cycleCount), memType(memType)
+	Scheduler(CPUManager* cpuManager, MemoryAllocator* allocator, volatile ull& cycleCount, string memType, deque<shared_ptr<process>>* processes, deque<shared_ptr<process>>* backingStore) : cycleCount(cycleCount), memType(memType)
     {
         this->cpuManager = cpuManager;
 		this->allocator = allocator;
+		this->processes = processes;
+		this->backingStore = backingStore;
     }
 
     void addProcess(shared_ptr<process> process) {
         {
             lock_guard<mutex> lock(mtx);
-            processes.push_back(process);
+            processes->push_back(process);
         }
         cv.notify_all();
     }
-    deque<shared_ptr<process>> getReadyQueue() {
+
+    /*deque<shared_ptr<process>> getReadyQueue() {
         lock_guard<mutex> lock(mtx);
         return processes;
-    }
+    }*/
 
     void starFCFS() {
         shared_ptr<process> currentProcess = nullptr;
 		int response = 0;
         while (true) {
-            if (processes.empty()) {
+            if (processes->empty()) {
                 this_thread::sleep_for(chrono::milliseconds(100));
                 continue;
             }
             {
                 lock_guard<mutex> lock(mtx);
-                currentProcess = processes.front();
-                processes.pop_front();
+                currentProcess = processes->front();
+                processes->pop_front();
             }
             response = cpuManager->startProcess(currentProcess);
 			if (response == 1) {
 				lock_guard<mutex> lock(mtx);
-				processes.push_back(currentProcess);
+				processes->push_back(currentProcess);
 			}
             if (response != 1 && currentProcess->getCoreAssigned() == -1) {
                 lock_guard<mutex> lock(mtx);
-                processes.push_front(currentProcess);
+                processes->push_front(currentProcess);
             }
 			response = 3;
         }
@@ -79,6 +87,7 @@ public:
         int response = 0;
         int prevCycleCount = cycleCount;
 		boolean flag = true;
+
         while (true) {
             vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
@@ -89,80 +98,83 @@ public:
 
                 {
                     unique_lock<mutex> lock(mtx);
-                    if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes.empty(); })) {
-                        currentProcess = processes.front();
+                    if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes->empty(); })) {
+                        currentProcess = processes->front();
 						if (currentProcess != nullptr && currentProcess->isFinished()) {
 							//memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
-							processes.pop_front();
+							processes->pop_front();
 							continue;
 						}
-                        processes.pop_front();
+                        processes->pop_front();
                     }
                     else {
                         continue;
                     }
                 }
+
 				if (currentProcess == nullptr) {
 					continue;
 				}
-                if (!currentProcess->hasMemoryAssigned()) {
-                    response = cpuManager->assignMemory(currentProcess);
-					//cout << "Current Process " << currentProcess->getProcessName() <<  " Response is " << response << endl;
-                }
-                if (response == -100) {
-					//process was not assigned memory
-					lock_guard<mutex> lock(mtx);
-					processes.push_front(currentProcess);
-					continue;
-                }
-                else if (response == -1){
-                    //process was given memory without any preempt.
-					//response = cpuManager->startProcess(currentProcess);
-                }
-                else if (response > -1) {
-                    // a process was preempted and kicked out of the queue 
-                    // find the process that was kicked out and tell it that it has no memory assigned
-                    //lock_guard<mutex> lock(mtx);
-                    for (auto& p : processes) {
-                        if (p->getId() == response) {
-                            //process found
-                            lock_guard<mutex> lock(mtx);
-                            p->setMemoryAssigned(false);
-							allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
-							p->assignMemoryAddress(nullptr);
-                            if (!p->isFinished()) {
-                                backingStore.push_back(p);
-                            }
-							//p->assignCore(-1);
-                            flag = true;
-                            break;
-                        }
-                        else {
-							//process not found because it is still in the cpu
-                            flag = false;
-                        }
-                    }
-					if (flag == false) {
-						//process not found in the deque. add current process back to the deque and try again.
-						lock_guard<mutex> lock(mtx);
-						processes.push_front(currentProcess);
-						this_thread::sleep_for(chrono::milliseconds(1));
-						cv.notify_all();
-                        continue;
-					}
-                    
-                }
 
-                if (flag && currentProcess->hasMemoryAssigned()) {
+     //           if (!currentProcess->hasMemoryAssigned()) {
+     //               response = cpuManager->assignMemory(currentProcess);
+					////cout << "Current Process " << currentProcess->getProcessName() <<  " Response is " << response << endl;
+     //           }
+
+     //           if (response == -100) {
+					////process was not assigned memory
+					//lock_guard<mutex> lock(mtx);
+					//processes.push_front(currentProcess);
+					//continue;
+     //           } else if (response == -1){
+     //               //process was given memory without any preempt.
+					////response = cpuManager->startProcess(currentProcess);
+     //           } else if (response > -1) {
+     //               // a process was preempted and kicked out of the queue 
+     //               // find the process that was kicked out and tell it that it has no memory assigned
+     //               //lock_guard<mutex> lock(mtx);
+     //               for (auto& p : processes) {
+     //                   if (p->getId() == response) {
+     //                       //process found
+     //                       lock_guard<mutex> lock(mtx);
+     //                       p->setMemoryAssigned(false);
+					//		allocator->deallocate(p->getMemoryAddress(),p->getMemoryRequired(), memType, p->getProcessName());
+					//		p->assignMemoryAddress(nullptr);
+     //                       if (!p->isFinished()) {
+     //                           backingStore.push_back(p);
+     //                       }
+					//		//p->assignCore(-1);
+     //                       flag = true;
+     //                       break;
+     //                   }
+     //                   else {
+					//		//process not found because it is still in the cpu
+     //                       flag = false;
+     //                   }
+     //               }
+					//
+     //               if (flag == false) {
+					//	//process not found in the deque. add current process back to the deque and try again.
+					//	lock_guard<mutex> lock(mtx);
+					//	processes.push_front(currentProcess);
+					//	this_thread::sleep_for(chrono::milliseconds(1));
+					//	cv.notify_all();
+     //                   continue;
+					//}
+     //               
+     //           }
+
+                //if (flag && currentProcess->hasMemoryAssigned()) {
                     //process has memory assigned and the other process was preempted and deallocated successful
                     response = cpuManager->startProcess(currentProcess);
                     if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-						//no cpu available
+                        //no cpu available
                         lock_guard<mutex> lock(mtx);
-                        processes.push_front(currentProcess);
+                        processes->push_front(currentProcess);
                         cv.notify_all();
                     }
-                }
+                  
+                //}
 			    
                 
 
@@ -177,12 +189,14 @@ public:
             //}
         }
     }
-	void printQueue() {
-		for (int i = 0; i < processes.size(); i++) {
-			cout << i << " is " << processes[i]->getProcessName() << endl;
-		}
-	}
+    void printQueue() {
+        for (int i = 0; i < processes->size(); i++) {
+            cout << i << " is " << (*processes)[i]->getProcessName() << endl;
+        }
+    }
     ull getSize() {
-        return processes.size();
+        return processes->size();
     }
 };
+
+#endif

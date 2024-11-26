@@ -1,4 +1,8 @@
 #pragma once
+
+#ifndef MANAGER_H
+#define MANAGER_H
+
 #include "screen.h"
 #include <thread>
 #include <iostream>
@@ -15,7 +19,6 @@
 
 using namespace std;
 
-
 class CPUWorker {
 private:
     int cpu_Id;
@@ -30,6 +33,7 @@ private:
 	mutex* mainMtxAddress;
     bool isStarted = false;
 	string memType;
+
     void run() {
 		int totalInstructionsExecuted = 0;
 		while (!isStarted) {
@@ -106,7 +110,7 @@ private:
             }
         }
     }
-    std::string getCurrentTimestamp() {
+    string getCurrentTimestamp() {
         auto now = std::chrono::system_clock::now();
         std::time_t time = std::chrono::system_clock::to_time_t(now);
         std::tm localTime;
@@ -268,6 +272,9 @@ private:
     mutex* mainMtxAddress;
 	string memType;
 	volatile ull& cycleCount;
+    deque<shared_ptr<process>>* processes;
+    deque<shared_ptr<process>>* backingStore;
+
 public:
     /*CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress) 
         : numCpus(numCpus), allocator(allocator)  {
@@ -278,10 +285,12 @@ public:
     }*/
 
     CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
-                mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
+                mutex* mainMtxAddress, volatile ull& cycleCount, string memType, deque<shared_ptr<process>>* processes, deque<shared_ptr<process>>* backingStore)
         : numCpus(numCpus), cycleCount(cycleCount), memType(memType){
         this->mainMtxAddress = mainMtxAddress;
 		this->allocator = allocator;
+		this->processes = processes;
+		this->backingStore = backingStore;
         for (int i = 0; i < numCpus; i++) {
             cpuWorkers.push_back(new CPUWorker(i, quantumCycles, delaysPerExec, schedulerType, allocator, mainMtxAddress, *&cycleCount, memType));
         }
@@ -332,19 +341,67 @@ public:
 		}
     }
         
-	int startProcess(shared_ptr<process> proc) {
+    int startProcess(shared_ptr<process> proc) {
+        int response = -11; // Default response for failure to assign process to a core
+
+        if (!proc) {
+            return response; // Null process, cannot start
+        }
+
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
-				//cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
-                proc->assignCore(i);
-                cpuWorkers[i]->assignScreen(proc);
-                return -10;
-                //success
+                // Step 1: Check and assign memory if not already assigned
+                if (!proc->hasMemoryAssigned()) {
+                    response = assignMemory(proc);
+
+                    if (response == -100) {
+                        // Memory assignment failed, requeue the process
+                        {
+                            lock_guard<mutex> lock(mtx);
+                            processes->push_front(proc);
+                        }
+                        return response;
+                    }
+                    else if (response > -1) {
+                        // A process was preempted, handle the preempted process
+                        handlePreemptedProcess(response);
+                    }
+                }
+
+                if (response != -100) {
+                    // Step 2: Assign the process to the CPU core
+                    proc->assignCore(i);
+                    cpuWorkers[i]->assignScreen(proc);
+                    return -10; // Process successfully started
+                }
             }
         }
-        return -11;
+
+        // Step 3: No cores available, requeue the process
+        {
+            lock_guard<mutex> lock(mtx);
+            processes->push_front(proc);
+        }
+        return response;
     }
 
+    // Helper to handle preempted process
+    void handlePreemptedProcess(int preemptedProcessId) {
+
+        for (auto& p : *processes) {
+            if (p->getId() == preemptedProcessId) {
+                lock_guard<mutex> lock(mtx);
+                p->setMemoryAssigned(false);
+                allocator->deallocate(p->getMemoryAddress(), p->getMemoryRequired(), memType, p->getProcessName());
+                p->assignMemoryAddress(nullptr);
+
+                if (!p->isFinished()) {
+                    backingStore->push_back(p);
+                }
+                break;
+            }
+        }
+    }
 
 	int getCoresAvailable() {
 		int coresAvailable = 0;
@@ -362,3 +419,5 @@ public:
         }
     }
 };
+
+#endif

@@ -1,3 +1,8 @@
+#pragma once
+
+#ifndef MAIN_H
+#define MAIN_H
+
 #include <windows.h>
 #include <iostream>
 #include <string>
@@ -19,6 +24,7 @@ using namespace std;
 
 volatile bool running = true;
 volatile ull cycleCount = 0;
+volatile ull activeCycleCount = 0;
 string memType;
 mutex cycleMutex;
 void incrementCycleCount() {
@@ -41,6 +47,7 @@ void runCycleCount() {
 	}
 }
 thread cycleThread;
+thread activeCycleThread;
 
 mutex mtx;
 mutex testMtx;
@@ -73,6 +80,31 @@ ull memPerProc = 4096;
 
 ull totalFrames = maxOverallMem / memPerFrame;
 bool useFlat = maxOverallMem == memPerFrame;
+
+deque<shared_ptr<process>> processes;
+deque<shared_ptr<process>> backingStore;
+
+void incrementActiveCycleCount() {
+    unique_lock<mutex> lock(cycleMutex);
+    activeCycleCount += 1;
+    this_thread::sleep_for(chrono::milliseconds(100));
+    lock.unlock();
+}
+void resetActiveCycleCount() {
+    activeCycleCount = 0;
+}
+ull getActiveCycleCount() {
+    return activeCycleCount;
+}
+void runActiveCycleCount() {
+    //cout << "Running cycle count." << endl;
+    while (running) {
+        if (processes.size() > 0) {
+            incrementActiveCycleCount();
+            //cout << "Cycle count outside: " << cycleCount << endl;
+        }
+    }
+}
 
 string trim(const string& str) {
     size_t start = str.find_first_not_of(" \t\"");
@@ -255,13 +287,16 @@ void initialize() {
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
+		activeCycleThread = thread(runActiveCycleCount);
+		activeCycleThread.detach();
+
         // Comment out to force flat mem
         // memType = "Flat Memory";
 
         memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame);
-        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType);
+        cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType, addressof(processes), addressof(backingStore));
         
-        processScheduler = new Scheduler(cpuManager, memoryAllocator, *&cycleCount, memType);
+        processScheduler = new Scheduler(cpuManager, memoryAllocator, *&cycleCount, memType, addressof(processes), addressof(backingStore));
 
         //processScheduler = new Scheduler(cpuManager, *memoryAllocator, &cycleCount);
 	
@@ -544,6 +579,10 @@ void exitProgram() {
 		cycleThread.join();
 	}
 
+    if (activeCycleThread.joinable()) {
+        activeCycleThread.join();
+    }
+
     if (processThread.joinable()) {
         processThread.join();
     }
@@ -577,9 +616,9 @@ void vmstat() {
     size_t usedMemory = memoryAllocator->getUsedMemorySize();
     size_t freeMemory = totalMemory - usedMemory;
 
-    //size_t totalCPUTicks = cpuManager->getTotalCPUTicks();
-    //size_t idleCPUTicks = cpuManager->getIdleCPUTicks();
-    //size_t activeCPUTicks = totalCPUTicks - idleCPUTicks;
+    ull totalCPUTicks = cycleCount;
+    ull idleCPUTicks = cycleCount - activeCycleCount;
+    ull activeCPUTicks = activeCycleCount;
 
     size_t numPagedIn = memoryAllocator->getPageIn();
     size_t numPagedOut = memoryAllocator->getPageOut();
@@ -591,11 +630,11 @@ void vmstat() {
 
     cout << "Total Memory:         " << totalMemory << " KB" << endl;
     cout << "Used Memory:          " << usedMemory << " KB" << endl;
-    cout << "Free Memory:          " << freeMemory << " KB" << endl;
+    cout << "Free Memory:          " << freeMemory << " KB" << endl << endl;
 
-    /*cout << "Idle CPU Ticks:       " << idleCPUTicks << endl;
+    cout << "Idle CPU Ticks:       " << idleCPUTicks << endl;
     cout << "Active CPU Ticks:     " << activeCPUTicks << endl;
-    cout << "Total CPU Ticks:      " << totalCPUTicks << endl;*/
+    cout << "Total CPU Ticks:      " << totalCPUTicks << endl << endl;
 
     cout << "Pages Paged In:       " << numPagedIn << endl;
     cout << "Pages Paged Out:      " << numPagedOut << endl;
@@ -673,3 +712,5 @@ int main() {
 
     return 0;
 }
+
+#endif
