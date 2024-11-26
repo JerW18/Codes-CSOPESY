@@ -89,6 +89,8 @@ private:
 
 	PageTable pageTable;
     queue<size_t> freeFrameList;
+	int pageOut = 0;
+	int pageIn = 0;
 
     unordered_map<string, int> processAges;
     unordered_map<string, vector<size_t>> processPageMapping;
@@ -222,6 +224,7 @@ public:
             }
 
             pageTable.addMapping(pageNumber, allocatedFrames[i]);  // Map page to frame
+			pageIn++;
             
         }
 
@@ -264,6 +267,7 @@ public:
                         continue;
                     }
                     pageTable.removeMapping(pageNumber);
+					pageOut++;
                     if (frameNumber < allocationMap.size()) {
                         allocationMap[frameNumber].isAllocated = false;
                         allocationMap[frameNumber].processName = "";
@@ -355,6 +359,7 @@ public:
 
                 // Invalidate the page mapping in the page table
                 pageTable.removeMapping(pageNumber);
+				pageOut++;
 
                 // Mark the frame as free and return it to the free list
                 if (frameNumber < allocationMap.size()) {
@@ -405,6 +410,16 @@ public:
 
 	ull getTotalMemorySize() {
 		return memory.size();
+	}
+
+	ull getUsedMemorySize() {
+		ull usedMemorySize = 0;
+		for (size_t i = 0; i < allocationMap.size(); i++) {
+			if (allocationMap[i].isAllocated) {
+				usedMemorySize += frameSize;
+			}
+		}
+		return usedMemorySize;
 	}
 
 	int getNumOfProcesses() {
@@ -505,5 +520,12 @@ public:
         cout << "Allocation map size should be: " << allocationMap.size() << endl;
     }
 
+	int getPageIn() {
+		return pageIn;
+	}
+
+	int getPageOut() {
+		return pageOut;
+	}
 };
 

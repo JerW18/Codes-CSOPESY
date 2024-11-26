@@ -565,6 +565,44 @@ void rrq() {
 	memoryAllocator->printAllocationMap();
 }
 
+void vmstat() {
+    if (!initialized) {
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+        return;
+    }
+
+    unique_lock<mutex> lock(mtx);
+
+    size_t totalMemory = memoryAllocator->getTotalMemorySize();
+    size_t usedMemory = memoryAllocator->getUsedMemorySize();
+    size_t freeMemory = totalMemory - usedMemory;
+
+    //size_t totalCPUTicks = cpuManager->getTotalCPUTicks();
+    //size_t idleCPUTicks = cpuManager->getIdleCPUTicks();
+    //size_t activeCPUTicks = totalCPUTicks - idleCPUTicks;
+
+    size_t numPagedIn = memoryAllocator->getPageIn();
+    size_t numPagedOut = memoryAllocator->getPageOut();
+
+    // Display the statistics
+    cout << "----------------------------------" << endl;
+    cout << "Virtual Memory Statistics (vmstat)" << endl;
+    cout << "----------------------------------" << endl;
+
+    cout << "Total Memory:         " << totalMemory << " KB" << endl;
+    cout << "Used Memory:          " << usedMemory << " KB" << endl;
+    cout << "Free Memory:          " << freeMemory << " KB" << endl;
+
+    /*cout << "Idle CPU Ticks:       " << idleCPUTicks << endl;
+    cout << "Active CPU Ticks:     " << activeCPUTicks << endl;
+    cout << "Total CPU Ticks:      " << totalCPUTicks << endl;*/
+
+    cout << "Pages Paged In:       " << numPagedIn << endl;
+    cout << "Pages Paged Out:      " << numPagedOut << endl;
+
+    cout << "----------------------------------\n" << endl;
+}
+
 map<string, void (*)()> commands = {
     {"rrq", rrq},
     {"ini", initialize},
@@ -576,7 +614,8 @@ map<string, void (*)()> commands = {
     {"scheduler-stop", schedStop},
     {"initialize", initialize},
     {"clear", clearScreen},
-    {"exit", exitProgram}
+    {"exit", exitProgram},
+    {"vmstat", vmstat}
 };
 
 
