@@ -7,7 +7,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include "timeStamp.h"
 #include <unordered_map>
 #include <limits.h>
 #include <queue>
@@ -21,22 +20,13 @@
 #include <algorithm>
 #include <functional>
 #include <iomanip>
-#include "screen.h"
-
-#include "screen.h"
-#include <thread>
-#include <iostream>
-#include <atomic>
-#include "timeStamp.h"
 #include <fstream>
-#include <memory>
-#include <iomanip>
-#include <chrono>
 #include <ctime>
-#include <sstream>
 #include <filesystem>
 
-
+// Custom headers
+#include "timeStamp.h"
+class process;
 
 
 using ull = unsigned long long;
