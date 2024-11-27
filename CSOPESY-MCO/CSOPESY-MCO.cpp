@@ -27,27 +27,8 @@ volatile ull cycleCount = 0;
 volatile ull activeCycleCount = 0;
 string memType;
 mutex cycleMutex;
-void incrementCycleCount() {
-    unique_lock<mutex> lock(cycleMutex);
-	cycleCount+=1;
-	this_thread::sleep_for(chrono::milliseconds(100));
-    lock.unlock();
-}
-void resetCycleCount() {
-	cycleCount = 0;
-}
-ull getCycleCount() {
-	return cycleCount;
-}
-void runCycleCount() {
-	//cout << "Running cycle count." << endl;
-	while (running) {
-		incrementCycleCount();
-		//cout << "Cycle count outside: " << cycleCount << endl;
-	}
-}
+
 thread cycleThread;
-thread activeCycleThread;
 
 mutex mtx;
 mutex testMtx;
@@ -84,11 +65,20 @@ bool useFlat = maxOverallMem == memPerFrame;
 deque<shared_ptr<process>> processes;
 deque<shared_ptr<process>> backingStore;
 
+void incrementCycleCount() {
+    cycleCount += 1;
+    this_thread::sleep_for(chrono::milliseconds(100));
+}
+void resetCycleCount() {
+    cycleCount = 0;
+}
+ull getCycleCount() {
+    return cycleCount;
+}
+
 void incrementActiveCycleCount() {
-    unique_lock<mutex> lock(cycleMutex);
     activeCycleCount += 1;
     this_thread::sleep_for(chrono::milliseconds(100));
-    lock.unlock();
 }
 void resetActiveCycleCount() {
     activeCycleCount = 0;
@@ -96,13 +86,17 @@ void resetActiveCycleCount() {
 ull getActiveCycleCount() {
     return activeCycleCount;
 }
-void runActiveCycleCount() {
+
+void runCycleCount() {
     //cout << "Running cycle count." << endl;
     while (running) {
+        unique_lock<mutex> lock(cycleMutex);
+        incrementCycleCount();
         if (processes.size() > 0) {
             incrementActiveCycleCount();
-            //cout << "Cycle count outside: " << cycleCount << endl;
         }
+        //cout << "Cycle count outside: " << cycleCount << endl;
+        lock.unlock();
     }
 }
 
@@ -311,8 +305,6 @@ void initialize() {
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
-		activeCycleThread = thread(runActiveCycleCount);
-		activeCycleThread.detach();
 
         memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame, addressof(processes));
         //memoryAllocator = new MemoryAllocator(maxOverallMem, memPerFrame);
@@ -601,10 +593,6 @@ void exitProgram() {
 	if (cycleThread.joinable()) {
 		cycleThread.join();
 	}
-
-    if (activeCycleThread.joinable()) {
-        activeCycleThread.join();
-    }
 
     if (processThread.joinable()) {
         processThread.join();
