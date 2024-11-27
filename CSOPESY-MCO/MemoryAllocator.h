@@ -11,6 +11,33 @@
 #include <unordered_map>
 #include <limits.h>
 #include <queue>
+#include <deque>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <chrono>
+#include <condition_variable>
+#include <atomic>
+#include <algorithm>
+#include <functional>
+#include <iomanip>
+#include "screen.h"
+
+#include "screen.h"
+#include <thread>
+#include <iostream>
+#include <atomic>
+#include "timeStamp.h"
+#include <fstream>
+#include <memory>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
+#include <sstream>
+#include <filesystem>
+
+
+
 
 using ull = unsigned long long;
 
@@ -96,7 +123,7 @@ private:
 
     unordered_map<string, int> processAges;
     unordered_map<string, vector<size_t>> processPageMapping;
-
+    deque<shared_ptr<process>>* processes;
 public:
     mutex mtx;
     MemoryAllocator(size_t totalMemorySize, size_t frameSize)
@@ -104,9 +131,20 @@ public:
         frameSize(frameSize), totalFrames(totalMemorySize / frameSize),
         totalMemorySize(totalMemorySize), pageTable(totalMemorySize / frameSize),
         numOfProcesses(0), currentAge(0) {
-        // Initialize the free frame queue
         for (size_t i = 0; i < totalFrames; ++i) {
-            freeFrameList.push(i);  // Add all frames to the free list
+            freeFrameList.push(i);  
+        }
+
+    }
+
+    MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
+        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
+        frameSize(frameSize), totalFrames(totalMemorySize / frameSize),
+        totalMemorySize(totalMemorySize), pageTable(totalMemorySize / frameSize),
+        numOfProcesses(0), currentAge(0) {
+        this->processes = processes;
+        for (size_t i = 0; i < totalFrames; ++i) {
+            freeFrameList.push(i);  
         }
 
     }
@@ -242,6 +280,8 @@ public:
     
 
     string swapOutOldestProcess(string strategy) {
+		mutex mtx1;
+		lock_guard<mutex> lock(mtx1);
         if (processAges.empty()) return "";
 
         // Find the oldest process
@@ -261,6 +301,8 @@ public:
                 allocationMap[i].processName = "";
             }
         }
+
+        
 
         /*if (strategy == "Paging") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
@@ -299,6 +341,17 @@ public:
                 processPageMapping.erase(oldestProcess);
             }
         }
+		cout << "Removing process " << oldestProcess << endl;
+        /*for (auto& p : *processes) {
+			if (p->getProcessName() == oldestProcess) {
+				deallocate(p->getMemoryAddress(), p->getMemoryRequired(), strategy, oldestProcess);
+				p->setMemoryAssigned(false);
+				cout << "Process " << oldestProcess << " deallocated. "  << p->hasMemoryAssigned() << endl;
+				break;
+			}
+        }*/
+
+        
         processAges.erase(oldestProcess);
         numOfProcesses--;
         return oldestProcess;
@@ -309,6 +362,7 @@ public:
 
     void deallocate(void* ptr, size_t size, string strategy, string processName) {
         lock_guard<mutex> lock(mtx);
+		cout << "Deallocating process " << processName << endl;
 		if (strategy == "Flat Memory") {
             
             void* temp = &memory[0];
@@ -331,14 +385,17 @@ public:
             numOfProcesses--;
 
             // Remove the process from the age tracker if it exists
-            for (auto it = processAges.begin(); it != processAges.end(); ) {
+            /*for (auto it = processAges.begin(); it != processAges.end(); ) {
                 if (it->second == index) {
                     it = processAges.erase(it);
                 }
                 else {
                     ++it;
                 }
-            }
+            }*/
+			if (processAges.find(processName) != processAges.end()) {
+				processAges.erase(processName);
+			}
 		}
         else if (strategy == "Paging") {
 
@@ -368,23 +425,24 @@ public:
                     allocationMap[frameNumber].isAllocated = false;
                     allocationMap[frameNumber].processName = "";
                 }
-                freeFrameList.push(frameNumber);  // Return frame to the free list
+                freeFrameList.push(frameNumber);  
             }
 
-            // Remove the process from the process page mapping
             processPageMapping.erase(processName);
-
-            // Update process count
             numOfProcesses--;
 
             // Remove the process from the age tracker, if applicable
-            for (auto it = processAges.begin(); it != processAges.end();) {
+            /*for (auto it = processAges.begin(); it != processAges.end();) {
                 if (it->first == processName) {
                     it = processAges.erase(it);
                 }
                 else {
                     ++it;
                 }
+            }*/
+
+            if (processAges.find(processName) != processAges.end()) {
+                processAges.erase(processName);
             }
 
             //cout << "Process '" << processName << "' deallocated successfully." << endl;

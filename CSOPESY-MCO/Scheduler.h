@@ -98,14 +98,13 @@ public:
 
                 {
                     unique_lock<mutex> lock(mtx);
-                    if (cv.wait_for(lock, chrono::milliseconds(1), [this] { return !processes->empty(); })) {
+                    if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes->empty(); })) {
                         currentProcess = processes->front();
+                        processes->pop_front();
 						if (currentProcess != nullptr && currentProcess->isFinished()) {
 							//memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
-							processes->pop_front();
 							continue;
 						}
-                        processes->pop_front();
                     }
                     else {
                         continue;

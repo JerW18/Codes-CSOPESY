@@ -46,13 +46,14 @@ private:
             while (true) {
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
-                    /*if (!currentProcess->hasMemoryAssigned()) {
+                    if (!currentProcess->hasMemoryAssigned()) {
+						cout << "Process " << currentProcess->getProcessName() << " does not have memory assigned." << endl;
 						//lock_guard<mutex> lock(*mainMtxAddress);
-                        currentProcess->assignCore(-1); // Unassign core
-                        available = true;
-                        currentProcess = nullptr;
-                        continue;
-                    }*/
+                        //currentProcess->assignCore(-1); // Unassign core
+                        //available = true;
+                        //currentProcess = nullptr;
+                        //continue;
+                    }
 
                     unique_lock<mutex> lock(mtx);
                     if (schedulerType == "rr") {
@@ -78,11 +79,11 @@ private:
                         }
 
                         else {
-                            if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
+                            /*if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
-                            }
+                            }*/
 							//cout << currentProcess->getProcessName() << " is done running." << endl;
                             currentProcess->assignCore(-1);
                             available = true;
@@ -125,7 +126,7 @@ private:
     void logMemoryState(int quantumCycle) {
 
         string lastPrintedProcessName = "";
-        size_t lastEndAddress;
+        size_t lastEndAddress=-1;
 		bool changedProcess = false;
 
         std::string timestamp = getCurrentTimestamp();
@@ -177,7 +178,7 @@ private:
     void printMemoryState(int quantumCycle) {
 
         string lastPrintedProcessName = "";
-        size_t lastEndAddress;
+        size_t lastEndAddress=-1;
         bool changedProcess = false;
 
         std::string timestamp = getCurrentTimestamp();
@@ -216,13 +217,6 @@ private:
 
 public:
 	volatile ull& cycleCount;
-    /*CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator& allocator, mutex* mainMtxAddress)
-        : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec), 
-        schedulerType(schedulerType), memoryAllocator(allocator) {
-		this->mainMtxAddress = mainMtxAddress;
-        workerThread = thread(&CPUWorker::run, this);
-        workerThread.detach();
-    }*/
 
     CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator, 
 		mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
@@ -377,9 +371,9 @@ public:
 
                 }
 
-                if (response != -100) {
+                if (response != -100 && proc->hasMemoryAssigned()) {
                     // Step 2: Assign the process to the CPU core
-
+					//cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
                     lock_guard<mutex> lock(mtx);
                     proc->assignCore(i);
                     cpuWorkers[i]->assignScreen(proc);
@@ -404,6 +398,9 @@ public:
                 continue;
             //cout << p->getId() << "|" << preemptedProcessId << " ";
 			if (p->getId() == preemptedProcessId) {
+                if (p->hasMemoryAssigned()) {
+                    cout << "Still has memory assigned.";
+                }
 				//cout << "Process " << p->getProcessName() << " was preempted and deallocated." << endl;
                 p->setMemoryAssigned(false);
                 allocator->deallocate(p->getMemoryAddress(), p->getMemoryRequired(), memType, p->getProcessName());

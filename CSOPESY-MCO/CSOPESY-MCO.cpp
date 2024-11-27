@@ -267,7 +267,6 @@ void clearLogFiles() {
         cerr << "Filesystem error: " << e.what() << '\n';
     }
 }
-
 void clearBackingStoreFiles() {
 	string logDirectory = "backingstore";
 
@@ -308,22 +307,19 @@ void initialize() {
             memType = "Paging";
         }
 
-		//memType = "Flat Memory";
+		memType = "Flat Memory";
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
 		activeCycleThread = thread(runActiveCycleCount);
 		activeCycleThread.detach();
 
-        // Comment out to force flat mem
-        // memType = "Flat Memory";
-
-        memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame);
+        memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame, addressof(processes));
+        //memoryAllocator = new MemoryAllocator(maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType, addressof(processes), addressof(backingStore));
         
         processScheduler = new Scheduler(cpuManager, memoryAllocator, *&cycleCount, memType, addressof(processes), addressof(backingStore));
 
-        //processScheduler = new Scheduler(cpuManager, *memoryAllocator, &cycleCount);
 	
 
         sm = new screenManager(&mtx, memoryAllocator, memType);
@@ -373,7 +369,8 @@ void schedStartThread() {
             unique_lock<mutex> lock(mtx);
             ull i = sm->getProcessCount();
             ull numIns = randomInsLength();
-            ull memoryReq = memPerProc; //randomMemLength();
+            //ull memoryReq = memPerProc; //randomMemLength();
+			ull memoryReq = randomMemLength();
 
             string processName = "p_" + to_string(i);
 
@@ -501,8 +498,8 @@ void screens(const string& option, const string& name) {
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << " Memory: "
                     << screen->getMemoryRequired() << " / " <<
-                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
-                    endl;
+                    //(screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                    (screen->hasMemoryAssigned() ? "Allocated" : "Not Allocated") << endl;
             }
         }
 
@@ -517,8 +514,8 @@ void screens(const string& option, const string& name) {
                     << screen->getInstructionIndex() << " / "
                     << screen->getTotalInstructions() << " Memory: "
                     << screen->getMemoryRequired() << " / " <<
-                    (screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
-                    endl;
+                    //(screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+					(screen->hasMemoryAssigned() ? "Allocated" : "Not Allocated") << endl;
             }
         }
 
@@ -539,7 +536,7 @@ void screens(const string& option, const string& name) {
         cout << "----------------------------------" << endl;
         
         string lastPrintedProcessName = "";
-        size_t lastEndAddress;
+        size_t lastEndAddress=-1;
         bool changedProcess = false;
 
 		timeStamp t;
