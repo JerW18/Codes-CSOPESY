@@ -33,7 +33,7 @@ private:
 	//ull memoryAssigned = 0;
 	void* memoryAddress = nullptr;
 	//ull assignedPages = 0;
-	bool hasMemory = false;
+    bool hasMemory = false;
 
 
 public:

@@ -126,7 +126,7 @@ public:
                     }
 					if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
                         //kicked out a process but did not have enough space to be allocated
-						cout << currentProcess->getProcessName() << " kicked out a process but did not have enough space to be allocated" << endl;
+						//cout << currentProcess->getProcessName() << " kicked out a process but did not have enough space to be allocated" << endl;
 						lock_guard<mutex> lock(mtx);
 						processes->push_front(currentProcess);
 						cv.notify_all();

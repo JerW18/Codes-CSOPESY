@@ -71,11 +71,12 @@ private:
                         }
                         if (currentProcess != nullptr && currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                             if (currentProcess->getMemoryAddress() != nullptr) {
-                                cout << "here" << endl;
+                                //cout << "here" << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                             }
+                            
                             this->available = true;
                             currentProcess = nullptr;
 
@@ -89,8 +90,10 @@ private:
                             }*/
 							//cout << currentProcess->getProcessName() << " is done running." << endl;
 							//processes.push_back(currentProcess);
-                            if(currentProcess != nullptr)
-                                currentProcess->assignCore(-1);
+                            if (currentProcess != nullptr) {
+								currentProcess->assignCore(-1);
+                            }
+
                             available = true;
                         }
                         lock.unlock();
@@ -435,17 +438,21 @@ public:
         if (xd) {
 			//cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
             for (auto cpu : cpuWorkers) {
-				if (cpu->getCurrentProcess() == nullptr)
+				if (cpu->available)
 					continue;
+
 				shared_ptr<process> currentProcess = cpu->getCurrentProcess();
+
                 if (currentProcess->getId() == preemptedProcessId && currentProcess->hasMemoryAssigned()) {
                     currentProcess->setMemoryAssigned(false);
+
                     allocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                     currentProcess->assignMemoryAddress(nullptr);
-					cpu->assignScreen(nullptr);
+					
 					cpu->available = true;
 					currentProcess->assignCore(-1);
 					processes->push_back(currentProcess);
+
                     xd = false;
                     if (!currentProcess->isFinished()) {
                         backingStore->push_back(currentProcess);

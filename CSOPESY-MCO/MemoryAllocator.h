@@ -438,7 +438,7 @@ public:
                 processAges.erase(processName);
             }
 
-            cout << "Process " << processName << " deallocated successfully." << endl;
+            //cout << "Process " << processName << " deallocated successfully." << endl;
         }
 	}
 
