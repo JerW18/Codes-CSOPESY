@@ -152,7 +152,7 @@ public:
                 numOfProcesses++;
                 processAges[processName] = currentAge++;  // Assign age to the newly allocated process
             }
-			result.first = temp;
+			result.first = temp; //null, "p_x" where x is the process name
 			result.second = replacedProncessName;
             return result;
         } else {
@@ -326,7 +326,8 @@ public:
                 processPageMapping.erase(oldestProcess);
             }
         }
-		cout << "Removing process " << oldestProcess << endl;
+		//cout << "Removing process " << oldestProcess << endl;
+
         /*bool xd = true;
         for (auto& p : *processes) {
 			if (p->getProcessName() == oldestProcess) {
@@ -344,7 +345,7 @@ public:
 
         
         processAges.erase(oldestProcess);
-        //numOfProcesses--;
+        numOfProcesses--;
         return oldestProcess;
     }
 
@@ -437,7 +438,7 @@ public:
                 processAges.erase(processName);
             }
 
-            //cout << "Process '" << processName << "' deallocated successfully." << endl;
+            cout << "Process " << processName << " deallocated successfully." << endl;
         }
 	}
 

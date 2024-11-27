@@ -115,15 +115,22 @@ public:
 					continue;
 				}
                 //if (flag && currentProcess->hasMemoryAssigned()) {
-                    //process has memory assigned and the other process was preempted and deallocated successful
                     response = cpuManager->startProcess(currentProcess);
                     if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-                        //no cpu available
+                        //no cpu available so cannot assign memory
                         //cout << currentProcess->getProcessName() << " here";
+						//cout << currentProcess->getProcessName() << " no cpu available so cannot assign memory" << endl;
                         lock_guard<mutex> lock(mtx);
                         processes->push_front(currentProcess);
                         cv.notify_all();
                     }
+					if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                        //kicked out a process but did not have enough space to be allocated
+						cout << currentProcess->getProcessName() << " kicked out a process but did not have enough space to be allocated" << endl;
+						lock_guard<mutex> lock(mtx);
+						processes->push_front(currentProcess);
+						cv.notify_all();
+					}
                   
                 //}
 			    

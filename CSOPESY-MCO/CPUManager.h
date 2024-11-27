@@ -49,17 +49,17 @@ private:
                 unique_lock<mutex> lock(mtx);
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
-                    if (!currentProcess->hasMemoryAssigned()) {
+                    if (currentProcess != nullptr && !currentProcess->hasMemoryAssigned()) {
 						cout << "Process " << currentProcess->getProcessName() << " does not have memory assigned." << endl;
 						//lock_guard<mutex> lock(*mainMtxAddress);
                         //currentProcess->assignCore(-1); // Unassign core
                         //available = true;
                         //currentProcess = nullptr;
-                        //continue;
+                        continue;
                     }
 
                     if (schedulerType == "rr") {
-                        while (instructionsExecuted < quantumCycles &&
+                        while (currentProcess != nullptr && instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
 
                             this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
@@ -69,7 +69,7 @@ private:
                             this_thread::sleep_for(chrono::milliseconds(100));
                             logMemoryState(totalInstructionsExecuted);
                         }
-                        if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+                        if (currentProcess != nullptr && currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                             if (currentProcess->getMemoryAddress() != nullptr) {
                                 cout << "here" << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
@@ -89,7 +89,8 @@ private:
                             }*/
 							//cout << currentProcess->getProcessName() << " is done running." << endl;
 							//processes.push_back(currentProcess);
-                            currentProcess->assignCore(-1);
+                            if(currentProcess != nullptr)
+                                currentProcess->assignCore(-1);
                             available = true;
                         }
                         lock.unlock();
@@ -318,7 +319,13 @@ public:
 				}
                 pos = allocatedMemory.second.find('_');
 				temp = allocatedMemory.second.substr(2);
-				//cout << "Process " << proc->getProcessName() << " kicked out process " << temp << " from memory" << endl;
+				//cout << "Process " << proc->getProcessName() << " kicked out one process " << temp << " from memory" << endl;
+                return stoi(temp);
+            }
+			else if (allocatedMemory.first == nullptr && allocatedMemory.second != "") {
+				//cout << "Process " << proc->getProcessName() << " could not be allocated enough memory. Kicking out process " << allocatedMemory.second << " from memory." << endl;
+				pos = allocatedMemory.second.find('_');
+				temp = allocatedMemory.second.substr(2);
                 return stoi(temp);
             }
             else {
@@ -341,9 +348,10 @@ public:
 
         for (int i = 0; i < numCpus; i++) {
             if (cpuWorkers[i]->isAvailable() && cpuWorkers[i]->getCurrentProcess() == nullptr) {
+				//cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
                 // Step 1: Check and assign memory if not already assigned
                 if (!proc->hasMemoryAssigned()) {
-					//cout << "Assigning memory to " << proc->getProcessName() << endl;
+                    //cout << "Assigning memory to " << proc->getProcessName() << endl;
                     response = assignMemory(proc);
 
                     if (response == -100) {
@@ -362,19 +370,18 @@ public:
                         handlePreemptedProcess(response);
                     }
 
-                   
+
                     for (auto it = backingStore->begin(); it != backingStore->end(); it++) {
-                            if ((*it)->getId() == proc->getId()) {
-                                backingStore->erase(it);
-                                // delete the file
-                                std::filesystem::remove("backingstore\\process_" + to_string(proc->getId()) + ".txt");
-                                break;
-                            }
+                        if ((*it)->getId() == proc->getId()) {
+                            backingStore->erase(it);
+                            // delete the file
+
+                            std::filesystem::remove("backingstore\\process_" + to_string(proc->getId()) + ".txt");
+                            break;
                         }
-                    
-
+                    }
                 }
-
+                
                 if (response != -100 && proc->hasMemoryAssigned()) {
                     // Step 2: Assign the process to the CPU core
 					//cout << "Process " << proc->getProcessName() << " assigned to core " << i << endl;
@@ -385,6 +392,7 @@ public:
                 }
             }
         }
+		this_thread::sleep_for(chrono::milliseconds(100));
 
         // Step 3: No cores available, requeue the process
         {
@@ -397,7 +405,7 @@ public:
 
     // Helper to handle preempted process
     void handlePreemptedProcess(int preemptedProcessId) {
-        bool xd = true;
+        atomic <bool> xd = true;
         //do {
             for (auto& p : *processes) {
                 if (p == nullptr)
@@ -425,7 +433,7 @@ public:
             }
         //} while (xd);
         if (xd) {
-			cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
+			//cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
             for (auto cpu : cpuWorkers) {
 				if (cpu->getCurrentProcess() == nullptr)
 					continue;
@@ -437,6 +445,7 @@ public:
 					cpu->assignScreen(nullptr);
 					cpu->available = true;
 					currentProcess->assignCore(-1);
+					processes->push_back(currentProcess);
                     xd = false;
                     if (!currentProcess->isFinished()) {
                         backingStore->push_back(currentProcess);

@@ -574,7 +574,8 @@ void screens(const string& option, const string& name) {
         }
         cout << "----start---- = 0\n";
 
-        memoryAllocator->printProcessAges();
+        //memoryAllocator->printProcessAges();
+        //processScheduler->printQueue();
 		lock.unlock();
     }
     else {
