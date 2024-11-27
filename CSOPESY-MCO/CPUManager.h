@@ -17,13 +17,14 @@
 #include <sstream>
 #include <filesystem>
 
+
+
 using namespace std;
 
 class CPUWorker {
 private:
     int cpu_Id;
     shared_ptr<process> currentProcess;
-    atomic<bool> available;
     thread workerThread;
     ull quantumCycles;
     ull delaysPerExec;
@@ -44,6 +45,8 @@ private:
         }
         if (isStarted) {
             while (true) {
+
+                unique_lock<mutex> lock(mtx);
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
                     if (!currentProcess->hasMemoryAssigned()) {
@@ -55,7 +58,6 @@ private:
                         //continue;
                     }
 
-                    unique_lock<mutex> lock(mtx);
                     if (schedulerType == "rr") {
                         while (instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
@@ -69,6 +71,7 @@ private:
                         }
                         if (currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
                             if (currentProcess->getMemoryAddress() != nullptr) {
+                                cout << "here" << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
@@ -85,6 +88,7 @@ private:
                                 currentProcess->setMemoryAssigned(false);
                             }*/
 							//cout << currentProcess->getProcessName() << " is done running." << endl;
+							//processes.push_back(currentProcess);
                             currentProcess->assignCore(-1);
                             available = true;
                         }
@@ -217,7 +221,7 @@ private:
 
 public:
 	volatile ull& cycleCount;
-
+    atomic<bool> available;
     CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator, 
 		mutex* mainMtxAddress, volatile ull& cycleCount, string memType)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec),
@@ -354,7 +358,7 @@ public:
                     else if (response > -1) {
                         // A process was preempted, handle the preempted process
 
-                        lock_guard<mutex> lock(mtx);
+                        //lock_guard<mutex> lock(mtx);
                         handlePreemptedProcess(response);
                     }
 
@@ -393,31 +397,63 @@ public:
 
     // Helper to handle preempted process
     void handlePreemptedProcess(int preemptedProcessId) {
-        for (auto& p : *processes) {
-            if (p == nullptr)
-                continue;
-            //cout << p->getId() << "|" << preemptedProcessId << " ";
-			if (p->getId() == preemptedProcessId) {
-                if (p->hasMemoryAssigned()) {
-                    cout << "Still has memory assigned.";
-                }
-				//cout << "Process " << p->getProcessName() << " was preempted and deallocated." << endl;
-                p->setMemoryAssigned(false);
-                allocator->deallocate(p->getMemoryAddress(), p->getMemoryRequired(), memType, p->getProcessName());
-                p->assignMemoryAddress(nullptr);
+        bool xd = true;
+        //do {
+            for (auto& p : *processes) {
+                if (p == nullptr)
+                    continue;
+                //cout << p->getId() << "|" << preemptedProcessId << " ";
+                if (p->getId() == preemptedProcessId && p->hasMemoryAssigned()) {
 
-                if (!p->isFinished()) {
-                    backingStore->push_back(p);
-                    // Create a new file for the process, store process id, current instruction index, and total instructions
-                    // create backing store directory if doesnt exist
-                    std::filesystem::create_directories("backingstore");
-                    ofstream processFile("backingstore\\process_" + to_string(p->getId()) + ".txt");
-                    processFile << "Process ID: " << p->getId() << endl;
-					processFile << "Current Instruction Index: " << p->getInstructionIndex() << endl;
-					processFile << "Total Instructions: " << p->getTotalInstructions() << endl;
+                    //cout << "Process " << p->getProcessName() << " was preempted and deallocated." << endl;
+                    p->setMemoryAssigned(false);
+                    allocator->deallocate(p->getMemoryAddress(), p->getMemoryRequired(), memType, p->getProcessName());
+                    p->assignMemoryAddress(nullptr);
+                    xd = false;
+                    if (!p->isFinished()) {
+                        backingStore->push_back(p);
+                        // Create a new file for the process, store process id, current instruction index, and total instructions
+                        // create backing store directory if doesnt exist
+                        std::filesystem::create_directories("backingstore");
+                        ofstream processFile("backingstore\\process_" + to_string(p->getId()) + ".txt");
+                        processFile << "Process ID: " << p->getId() << endl;
+                        processFile << "Current Instruction Index: " << p->getInstructionIndex() << endl;
+                        processFile << "Total Instructions: " << p->getTotalInstructions() << endl;
+                    }
+                    break;
                 }
-                break;
             }
+        //} while (xd);
+        if (xd) {
+			cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
+            for (auto cpu : cpuWorkers) {
+				if (cpu->getCurrentProcess() == nullptr)
+					continue;
+				shared_ptr<process> currentProcess = cpu->getCurrentProcess();
+                if (currentProcess->getId() == preemptedProcessId && currentProcess->hasMemoryAssigned()) {
+                    currentProcess->setMemoryAssigned(false);
+                    allocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
+                    currentProcess->assignMemoryAddress(nullptr);
+					cpu->assignScreen(nullptr);
+					cpu->available = true;
+					currentProcess->assignCore(-1);
+                    xd = false;
+                    if (!currentProcess->isFinished()) {
+                        backingStore->push_back(currentProcess);
+                        // Create a new file for the process, store process id, current instruction index, and total instructions
+                        // create backing store directory if doesnt exist
+                        std::filesystem::create_directories("backingstore");
+                        ofstream processFile("backingstore\\process_" + to_string(currentProcess->getId()) + ".txt");
+                        processFile << "Process ID: " << currentProcess->getId() << endl;
+                        processFile << "Current Instruction Index: " << currentProcess->getInstructionIndex() << endl;
+                        processFile << "Total Instructions: " << currentProcess->getTotalInstructions() << endl;
+                    }
+                    break;
+                }
+            }
+        }
+        if (xd) {
+            cout << "it's so over" << endl;
         }
     }
 

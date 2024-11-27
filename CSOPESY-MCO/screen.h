@@ -13,7 +13,7 @@
 #include "timeStamp.h"
 #include "global.h"
 #include <mutex>
-#include "MemoryAllocator.h"
+//#include "MemoryAllocator.h"
 
 typedef unsigned long long ull;
 
@@ -127,16 +127,17 @@ private:
     ull maxId = 0;
     shared_ptr<process> currentProcess = nullptr;
     mutex* m;
-    MemoryAllocator* allocator;
+    //MemoryAllocator* allocator;
     string memType;
 public:
     vector<shared_ptr<process>> processes;
     bool inScreen = false;
 
-    screenManager(mutex* mutexPtr, MemoryAllocator* allocator, string memType)
+    screenManager(mutex* mutexPtr, string memType)
         : m(mutexPtr), memType(memType) {
-		this->allocator = allocator;
     }
+
+    
 
     void printProcess() {
         for (auto& x : this->processes) {
@@ -159,17 +160,15 @@ public:
         return processes.size();
     }
 
-    void removeProcess(string processName) {
+    /*void removeProcess(string processName) {
         for (auto it = processes.begin(); it != processes.end(); ++it) {
             if ((*it)->getProcessName() == processName) {
                 allocator->deallocate((*it)->getMemoryAddress(), (*it)->getMemoryRequired(),memType, processName);
                 processes.erase(it);
-                //cout << "Process " << processName << " removed and memory deallocated." << endl;
                 return;
             }
         }
-       // cout << "Process " << processName << " not found." << endl;
-    }
+    }*/
 
     void reattachProcess(string processName, ull id) {
         for (const auto& x : this->processes) {

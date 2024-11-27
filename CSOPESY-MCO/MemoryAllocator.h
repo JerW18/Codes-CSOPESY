@@ -21,22 +21,8 @@
 #include <algorithm>
 #include <functional>
 #include <iomanip>
-#include "screen.h"
 
 #include "screen.h"
-#include <thread>
-#include <iostream>
-#include <atomic>
-#include "timeStamp.h"
-#include <fstream>
-#include <memory>
-#include <iomanip>
-#include <chrono>
-#include <ctime>
-#include <sstream>
-#include <filesystem>
-
-
 
 
 using ull = unsigned long long;
@@ -46,7 +32,7 @@ struct MemoryBlock {
     bool isFree;
     size_t startAddress;
     size_t endAddress;
-    string processName;  // or empty if it's free
+    string processName;
 };
 
 struct AllocationEntry {
@@ -62,13 +48,13 @@ struct PageTableEntry {
 class PageTable {
 private:
     vector<PageTableEntry> table;
-    queue<size_t> freePageList;  // Queue to track free page numbers
+    queue<size_t> freePageList;
 
 public:
     PageTable(size_t totalPages) {
-        table.resize(totalPages); // Preallocate page table
+        table.resize(totalPages); 
         for (size_t i = 0; i < totalPages; i++) {
-            freePageList.push(i);  // Initialize all pages as free
+            freePageList.push(i); 
         }
     }
 
@@ -126,7 +112,7 @@ private:
     deque<shared_ptr<process>>* processes;
 public:
     mutex mtx;
-    MemoryAllocator(size_t totalMemorySize, size_t frameSize)
+    /*MemoryAllocator(size_t totalMemorySize, size_t frameSize)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
         frameSize(frameSize), totalFrames(totalMemorySize / frameSize),
         totalMemorySize(totalMemorySize), pageTable(totalMemorySize / frameSize),
@@ -134,8 +120,7 @@ public:
         for (size_t i = 0; i < totalFrames; ++i) {
             freeFrameList.push(i);  
         }
-
-    }
+    }*/
 
     MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
@@ -342,18 +327,24 @@ public:
             }
         }
 		cout << "Removing process " << oldestProcess << endl;
-        /*for (auto& p : *processes) {
+        /*bool xd = true;
+        for (auto& p : *processes) {
 			if (p->getProcessName() == oldestProcess) {
 				deallocate(p->getMemoryAddress(), p->getMemoryRequired(), strategy, oldestProcess);
 				p->setMemoryAssigned(false);
-				cout << "Process " << oldestProcess << " deallocated. "  << p->hasMemoryAssigned() << endl;
+                p->assignMemoryAddress(nullptr);
+				cout << "Process " << oldestProcess << " deallocated in the mem allocator. "  << p->hasMemoryAssigned() << endl;
+                xd = false;
 				break;
 			}
+        }
+        if (xd) {
+            cout << "Process " << oldestProcess << " not found" << endl;
         }*/
 
         
         processAges.erase(oldestProcess);
-        numOfProcesses--;
+        //numOfProcesses--;
         return oldestProcess;
     }
 
@@ -361,8 +352,9 @@ public:
 
 
     void deallocate(void* ptr, size_t size, string strategy, string processName) {
-        lock_guard<mutex> lock(mtx);
-		cout << "Deallocating process " << processName << endl;
+        mutex mutex3;
+        lock_guard<mutex> lock(mutex3);
+		    
 		if (strategy == "Flat Memory") {
             
             void* temp = &memory[0];

@@ -3,6 +3,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include "screen.h"
 #include <windows.h>
 #include <iostream>
 #include <string>
@@ -12,12 +13,11 @@
 #include <vector>
 #include "CSOPESY-MCO.h"
 #include "timeStamp.h"
-#include "screen.h"
 #include "global.h"
 #include "CPUManager.h"
 #include "Scheduler.h"
 #include <mutex>
-#include "MemoryAllocator.h"
+//#include "MemoryAllocator.h"
 
 typedef unsigned long long ull;
 using namespace std;
@@ -307,7 +307,7 @@ void initialize() {
             memType = "Paging";
         }
 
-		memType = "Flat Memory";
+		//memType = "Flat Memory";
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
@@ -322,7 +322,7 @@ void initialize() {
 
 	
 
-        sm = new screenManager(&mtx, memoryAllocator, memType);
+        sm = new screenManager(&mtx, memType);
 
 
         schedulerThread = (schedulerType == "fcfs")

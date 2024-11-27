@@ -4,8 +4,9 @@
 #define SCHEDULER_H
 
 #include <queue>
-#include "screen.h"
+
 #include "CPUManager.h"
+#include "screen.h"
 #include <mutex>
 #include <memory>
 #include <condition_variable> 
@@ -87,12 +88,11 @@ public:
         int response = 0;
         int prevCycleCount = cycleCount;
 		boolean flag = true;
-
+        vector<shared_ptr<process>> toAdd;
         while (true) {
-            vector<shared_ptr<process>> toAdd = cpuManager->isAnyoneAvailable();
+            toAdd = cpuManager->isAnyoneAvailable();
             for (auto& p : toAdd) {
                 addProcess(p);
-				//cout << "Process " << p->getProcessName() << " added to the queue" << endl;
             }
             //if (prevCycleCount != cycleCount) {
 
