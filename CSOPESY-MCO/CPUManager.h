@@ -466,9 +466,6 @@ public:
                 }
             }
         }
-        if (xd) {
-            cout << "it's so over" << endl;
-        }
     }
 
 	int getCoresAvailable() {

@@ -658,6 +658,35 @@ void vmstat() {
     cout << "----------------------------------\n" << endl;
 }
 
+void processsmi() {
+    if (!initialized) {
+        cout << "Error: Scheduler not initialized. Use 'initialize' command first.\n" << endl;
+        return;
+    }
+    lock_guard<mutex> lock(mtx);
+    auto memoryState = memoryAllocator->getMemoryState();
+
+    cout << "-----------------------------------------\n";
+    cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
+    cout << "Memory Usage: " << memoryAllocator->getUsedMemorySize() << "/" << memoryAllocator->getTotalMemorySize() << endl;
+    cout << "Memory Utilization: " << ((float)memoryAllocator->getUsedMemorySize() / memoryAllocator->getTotalMemorySize()) * 100 << "%" << endl;
+    cout << "-----------------------------------------\n";
+    cout << "Running processes and their memory usage:\n";
+    cout << "-----------------------------------------\n\n";
+
+    for (const auto& proc : sm->processes) {
+        if (proc->hasMemoryAssigned()) {
+            cout << proc->getProcessName() << "\t" << proc->getMemoryRequired() << "\n";
+        }
+    }
+
+    if (processes.empty()) {
+        cout << "No running processes.\n";
+    }
+
+    cout << "\n-----------------------------------------\n\n";
+}
+
 map<string, void (*)()> commands = {
     {"rrq", rrq},
     {"ini", initialize},
@@ -670,7 +699,8 @@ map<string, void (*)()> commands = {
     {"initialize", initialize},
     {"clear", clearScreen},
     {"exit", exitProgram},
-    {"vmstat", vmstat}
+    {"vmstat", vmstat},
+    {"process-smi", processsmi}
 };
 
 
