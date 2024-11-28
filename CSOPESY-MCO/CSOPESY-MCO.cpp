@@ -526,14 +526,12 @@ void screens(const string& option, const string& name) {
         }
 
         cout << "----------------------------------" << endl;
-        
-        string lastPrintedProcessName = "";
-        size_t lastEndAddress=-1;
-        bool changedProcess = false;
 
-		timeStamp t;
-
+        /*timeStamp t;
         std::string timestamp = t.getTimeStamp();
+
+        string lastPrintedProcessName = "";
+        bool changedProcess = false;
 
         int numProcessesInMemory = memoryAllocator->getNumOfProcesses();
         int totalExternalFragmentation = memoryAllocator->getExternalFragmentation();
@@ -545,26 +543,32 @@ void screens(const string& option, const string& name) {
 
         cout << "----end---- = " << memoryAllocator->getTotalMemorySize() << "\n\n";
 
+        int lastEndAddress = memoryAllocator->getTotalMemorySize(); // Start from the total memory size
+
         for (auto it = memoryState.rbegin(); it != memoryState.rend(); ++it) {
             if (!it->isFree) {
                 if (it->processName != lastPrintedProcessName) {
-                    if (changedProcess) {
+                    // If there is a gap, print the gap's start address
+                    if (lastEndAddress != it->endAddress) {
                         cout << lastEndAddress << "\n\n";
                     }
-                    cout << it->endAddress << "\n";
-                    cout << it->processName << "\n";
-
+                    cout << it->endAddress << "\n"; // Print current process's end address
+                    cout << it->processName << "\n"; // Print current process name
                     lastPrintedProcessName = it->processName;
                     changedProcess = true;
                 }
-                lastEndAddress = it->startAddress;
+                lastEndAddress = it->startAddress; // Update the last end address
             }
         }
 
+        // Handle the case where the last process doesn't connect to memory address 0
         if (changedProcess && !memoryState.empty()) {
-            cout << memoryState.front().startAddress << "\n\n"; 
+            if (lastEndAddress != 0) {
+                cout << lastEndAddress << "\n\n";
+            }
         }
-        cout << "----start---- = 0\n";
+
+        cout << "----start---- = 0\n";*/
 
         //memoryAllocator->printProcessAges();
         //processScheduler->printQueue();

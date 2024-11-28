@@ -50,11 +50,10 @@ private:
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
                     if (currentProcess != nullptr && !currentProcess->hasMemoryAssigned()) {
-						//cout << "Process " << currentProcess->getProcessName() << " does not have memory assigned." << endl;
-						//lock_guard<mutex> lock(*mainMtxAddress);
-                        //currentProcess->assignCore(-1); // Unassign core
-                        //available = true;
-                        //currentProcess = nullptr;
+						lock_guard<mutex> lock(*mainMtxAddress);
+                        currentProcess->assignCore(-1); // Unassign core
+                        available = true;
+                        currentProcess = nullptr;
                         continue;
                     }
 
@@ -76,10 +75,8 @@ private:
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                             }
-                            
                             this->available = true;
                             currentProcess = nullptr;
-
                         }
 
                         else {
@@ -369,7 +366,7 @@ public:
                     else if (response > -1) {
                         // A process was preempted, handle the preempted process
 
-                        //lock_guard<mutex> lock(mtx);
+                        lock_guard<mutex> lock(mtx);
                         handlePreemptedProcess(response);
                     }
 
@@ -436,6 +433,7 @@ public:
             }
         //} while (xd);
         if (xd) {
+            
 			//cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
             for (auto cpu : cpuWorkers) {
 				if (cpu->available)
@@ -448,7 +446,7 @@ public:
 
                     allocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                     currentProcess->assignMemoryAddress(nullptr);
-					
+    
 					cpu->available = true;
 					currentProcess->assignCore(-1);
 					processes->push_back(currentProcess);
