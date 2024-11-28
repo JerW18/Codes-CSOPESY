@@ -2,7 +2,6 @@
 
 #ifndef MANAGER_H
 #define MANAGER_H
-
 #include "screen.h"
 #include <thread>
 #include <iostream>
@@ -16,6 +15,7 @@
 #include <ctime>
 #include <sstream>
 #include <filesystem>
+#include <list>
 
 
 
@@ -39,20 +39,20 @@ private:
 
     void run() {
 		int totalInstructionsExecuted = 0;
-		while (!isStarted) {
+		/*while (!isStarted) {
 			if (cycleCount % 10 == 0) {
                 isStarted = true;
 			}
-			//cout << this->cpu_Id << " Waiting for start signal " << cycleCount  << endl;
-        }
+        }*/
+        isStarted = true;
         if (isStarted) {
             while (true) {
 
-                unique_lock<mutex> lock(mtx);
+                //unique_lock<mutex> lock(mtx);
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
                     if (currentProcess != nullptr && !currentProcess->hasMemoryAssigned()) {
-						//lock_guard<mutex> lock(*mainMtxAddress);
+                        lock_guard<mutex> lock(mtx);
                         cout << "You shouldnt be here" << endl;
                         currentProcess->assignCore(-1); // Unassign core
                         available = true;
@@ -63,7 +63,7 @@ private:
                     if (schedulerType == "rr") {
                         while (currentProcess != nullptr && instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
-
+                            lock_guard<mutex> lock(mtx);
                             this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                             currentProcess->incrementInstructionIndex();
                             instructionsExecuted++;
@@ -72,19 +72,19 @@ private:
                             logMemoryState(totalInstructionsExecuted);
                         }
                         if (currentProcess != nullptr && currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
+                            lock_guard<mutex> lock(mtx);
                             if (currentProcess->getMemoryAddress() != nullptr) {
-                                //cout << "here" << endl;
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
                                 runningProcesses->remove(currentProcess->getProcessName());
                                 memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                                //memoryAllocator->removeRunningProcessId(currentProcess->getId());
                             }
                             currentProcess = nullptr;
                             this->available = true;
                             
                         }
-
                         else {
                             /*if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
@@ -93,22 +93,23 @@ private:
                             }*/
 							//cout << currentProcess->getProcessName() << " is done running." << endl;
 							//processes.push_back(currentProcess);
+                            lock_guard<mutex> lock(mtx);
                             if (currentProcess != nullptr) {
 								currentProcess->assignCore(-1);
+                                //cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
                                 runningProcesses->remove(currentProcess->getProcessName());
                                 memoryAllocator->removeRunningProcessId(currentProcess->getId());
-                                cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
 								processes->push_back(currentProcess);
-                                cout << "Added " << currentProcess->getProcessName() << " to the queue" << endl;
+                                //cout << "Added " << currentProcess->getProcessName() << " to the queue" << endl;
 								currentProcess = nullptr;
                             }
                             available = true;
                         }
-                        lock.unlock();
+                        //lock.unlock();
 
                     }
                     else if (schedulerType == "fcfs") {
-
+                        lock_guard<mutex> lock(mtx);
                         while (currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                             this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec)); 
                             currentProcess->incrementInstructionIndex();
@@ -124,7 +125,7 @@ private:
                             currentProcess = nullptr;
                         }
                         available = true;
-                        lock.unlock();
+                        //lock.unlock();
                     }
                 }
                 else {
@@ -303,6 +304,7 @@ private:
     deque<shared_ptr<process>>* processes;
     deque<shared_ptr<process>>* backingStore;
 	ull delaysPerExec;
+	string schedulerType;
 
 public:
 
@@ -310,6 +312,7 @@ public:
     CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
                 mutex* mainMtxAddress, volatile ull& cycleCount, string memType, deque<shared_ptr<process>>* processes, deque<shared_ptr<process>>* backingStore)
         : numCpus(numCpus), cycleCount(cycleCount), memType(memType){
+		this->schedulerType = schedulerType;
 		this->delaysPerExec = delaysPerExec;
         this->mainMtxAddress = mainMtxAddress;
 		this->allocator = allocator;
@@ -341,7 +344,7 @@ public:
         ull pos;
         string temp;
         if (!proc->hasMemoryAssigned()) {
-            pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName());
+            pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName(), schedulerType);
 
             if (allocatedMemory.first) {
                 proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
@@ -387,6 +390,7 @@ public:
 
                     if (response == -100) {
                         {
+                            //no memory available
                             lock_guard<mutex> lock(mtx);
                             processes->push_front(proc);
                         }
@@ -394,14 +398,18 @@ public:
                     }
                     else if (response > -1) {
                         // a process was kicked out of memory.
-                        //lock_guard<mutex> lock(mtx);
-                        for (int i = 0; i < delaysPerExec+2; i++) {
-                            this_thread::sleep_for(chrono::milliseconds(100));
-                        }
-						this_thread::sleep_for(chrono::milliseconds(100)); //100*numins of last process
-                        handlePreemptedProcess(response);
-                        if (xd) {
-							handlePreemptedProcess(response);
+                        if (schedulerType == "rr")
+                        {
+                            //lock_guard<mutex> lock(mtx);
+
+                            for (int i = 0; i < delaysPerExec; i++) {
+                                this_thread::sleep_for(chrono::milliseconds(100));
+                            }
+                            this_thread::sleep_for(chrono::milliseconds(100)); //100*numins of last process
+                            handlePreemptedProcess(response);
+                            if (xd) {
+                                handlePreemptedProcess(response);
+                            }
                         }
                         
                     }
@@ -477,7 +485,7 @@ public:
         //} while (xd);
         if (xd) {
             
-			cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
+			//cout << "Process " << preemptedProcessId << " was not found in the queue, checking cpu." << endl;
             for (auto cpu : cpuWorkers) {
 				if (cpu->available)
 					continue;

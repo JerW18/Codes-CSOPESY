@@ -117,7 +117,8 @@ private:
 public:
     mutex mtx;
 
-    list<int> runningProcessesId;
+    //list<int> runningProcessesId;
+	vector<int> runningProcessesId;
 
     MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
@@ -141,7 +142,7 @@ public:
         }
     }
 
-	void setRunningProcessesId(list<int> runningProcessesId) {
+	void setRunningProcessesId(vector<int> runningProcessesId) {
 		this->runningProcessesId = runningProcessesId;
 	}
 
@@ -149,9 +150,14 @@ public:
 		runningProcessesId.push_back(processId);
 	}
 
-	void removeRunningProcessId(int processId) {
-		runningProcessesId.remove(processId);
-	}
+	/*void removeRunningProcessId(int processId) {
+		runningProcessesId.erase(remove(runningProcessesId.begin(), runningProcessesId.end(), processId), runningProcessesId.end());
+	}*/
+    void removeRunningProcessId(int processId) {
+        mutex mute_x;
+		lock_guard<mutex> lock(mute_x);
+        runningProcessesId.erase(remove(runningProcessesId.begin(), runningProcessesId.end(), processId), runningProcessesId.end());
+    }
 
 	void printRunningProcessesId() {
 		cout << "Running Processes: ";
@@ -167,7 +173,7 @@ public:
         }
     }
     
-    pair<void*, string> allocate(size_t size, string strategy, string processName) {
+    pair<void*, string> allocate(size_t size, string strategy, string processName, string scheduler) {
 		lock_guard<mutex> lock(mtx);
 		pair <void*, string> result;
 		result.first = nullptr;
@@ -176,6 +182,7 @@ public:
         void* temp;
         string replacedProncessName="";
 		//first try to allocate memory
+		//cout << "Allocating " << size << " bytes for process '" << processName << "' using " << strategy << " strategy." << endl;
         if (strategy == "Flat Memory") {
 			temp = allocateFirstFit(size, processName);
         }
@@ -183,7 +190,7 @@ public:
 			temp = allocatePaging(size, processName);
 
 		//try again if allocation failed
-		if (temp == nullptr) {
+		if (temp == nullptr && scheduler!="fcfs") {
 			replacedProncessName = swapOutOldestProcess(strategy);
             //returns empty if nothing was dealloc'd
             if (replacedProncessName != "") {
@@ -297,17 +304,21 @@ public:
         // Find the oldest process that isnt running
         string oldestProcess;
         int oldestAge = INT_MAX;
+        int processId = -1;
         for (const auto& entry : processAges) {
             if (entry.second < oldestAge) {
                 oldestAge = entry.second;
                 oldestProcess = entry.first;
             }
+            processId = stoi(oldestProcess.substr(2));
         }
-        int processId = stoi(oldestProcess.substr(2));
-        if (find(runningProcessesId.begin(), runningProcessesId.end(), processId) != runningProcessesId.end()) {
-            //cout << "Process " << entry.first << " is running, skipping" << endl;
-            return "";
+        if (!runningProcessesId.empty()) {
+			this_thread::sleep_for(chrono::milliseconds(100));
+            if(find(runningProcessesId.begin(), runningProcessesId.end(), processId) != runningProcessesId.end()) 
+                return "";
         }
+            
+		if (processAges.empty()) return "";
 
         if (strategy == "Flat Memory") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
@@ -346,8 +357,10 @@ public:
             }
 
             numOfProcesses--;
+
         }
-        
+
+
         processAges.erase(oldestProcess);
         
         return oldestProcess;
@@ -360,7 +373,8 @@ public:
 		if (strategy == "Flat Memory") {
 
             void* temp = &memory[0];
-            size_t index = static_cast<char*>(ptr) - temp;
+            //size_t index = static_cast<char*>(ptr) - temp;
+            size_t index = static_cast<char*>(ptr) - static_cast<char*>(temp);
             if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
                 cout << "Error: Invalid memory address for deallocation." << endl;
                 return;

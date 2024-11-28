@@ -66,6 +66,7 @@ public:
                 continue;
             }
             {
+                lock_guard<mutex> lock(mtx);
                 currentProcess = processes->front();
                 processes->pop_front();
                 if (currentProcess != nullptr && currentProcess->isFinished()) {
@@ -73,16 +74,7 @@ public:
                     continue;
                 }
             }
-            /*response = cpuManager->startProcess(currentProcess);
-			if (response == 1) {
-				lock_guard<mutex> lock(mtx);
-				processes->push_back(currentProcess);
-			}
-            if (response != 1 && currentProcess->getCoreAssigned() == -1) {
-                lock_guard<mutex> lock(mtx);
-                processes->push_front(currentProcess);
-            }
-			response = 3;*/
+
             if (currentProcess == nullptr) {
                 continue;
             }
@@ -93,6 +85,7 @@ public:
                 cv.notify_all();
             }
             if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                cout << "returned > -1" << endl;
                 lock_guard<mutex> lock(mtx);
                 processes->push_front(currentProcess);
                 cv.notify_all();
