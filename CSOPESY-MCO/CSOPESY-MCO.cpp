@@ -608,9 +608,10 @@ void exitProgram() {
 
 
 void rrq() {
-	/*for (auto& p : processScheduler->getReadyQueue()) {
+	for (auto& p : processes) {
 		cout << p->getProcessName() << endl;
-	}*/
+	}
+	
     memoryAllocator->printFreeFrameList();
 	memoryAllocator->printAllocationMap();
 }

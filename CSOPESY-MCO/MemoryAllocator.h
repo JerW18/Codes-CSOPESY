@@ -50,6 +50,8 @@ private:
     vector<PageTableEntry> table;
     queue<size_t> freePageList;
 
+    
+
 public:
     PageTable(size_t totalPages) {
         table.resize(totalPages); 
@@ -123,6 +125,7 @@ public:
             freeFrameList.push(i);  
         }
     }*/
+    // vector <string> freeFramesFlat;
 
     MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
@@ -145,6 +148,8 @@ public:
             freeFrameList.push(i);
         }
     }
+
+    
     
     pair<void*, string> allocate(size_t size, string strategy, string processName) {
 		lock_guard<mutex> lock(mtx);
@@ -197,46 +202,64 @@ public:
     }
 
     void* allocateFirstFit(size_t size, string processName) {
-        size_t framesNeeded = (size + frameSize - 1) / frameSize;  // Number of frames needed
-        size_t consecutiveFreeFrames = 0;  // Count consecutive free frames
-        vector<size_t> allocatedFrames;  // To track frames that are allocated
+        size_t framesNeeded = (size + frameSize - 1) / frameSize;
 
-        // Check if allocation will exceed available memory
-        size_t newMemoryUsage = totalMemorySize - freeFrameList.size() + size;
-        if (newMemoryUsage >= totalMemorySize) {
-            //cout << "Error: Not enough memory to allocate process " << processName << endl;
-            return nullptr;  // Indicate failure due to insufficient memory
-        }
-
-        for (size_t i = 0; i < totalMemorySize; ++i) {
-            if (allocationMap[i].isAllocated == false) {
-                consecutiveFreeFrames++;
-                allocatedFrames.push_back(i);  // Add this frame to allocation list
+        for (size_t i = 0; i + framesNeeded <= allocationMap.size(); i++) {
+            bool found = true;
+            for (size_t j = 0; j < framesNeeded; j++) {
+                if (allocationMap[i + j].isAllocated) {  // Check if the frame is already allocated
+                    found = false;
+                    break;
+                }
             }
-            else {
-                consecutiveFreeFrames = 0;  // Reset count if block is allocated
-                allocatedFrames.clear();  // Reset allocated frames
-            }
-
-            if (consecutiveFreeFrames == framesNeeded) {
-                // We've found enough free contiguous frames, allocate them
-                for (size_t j = 0; j < framesNeeded; ++j) {
-                    size_t frameIndex = allocatedFrames[j];
-                    allocationMap[frameIndex].isAllocated = true;
-                    allocationMap[frameIndex].processName = processName;
+            if (found) {
+                // Mark the frames as allocated and assign the process name
+                for (size_t j = 0; j < framesNeeded; j++) {
+                    allocationMap[i + j].isAllocated = true;
+                    allocationMap[i + j].processName = processName;  // Store the process name
                 }
 
-                // Update the global allocated memory counter
-                totalAllocatedMemory += size;
-
-                // Return the address of the first frame allocated
-                return &memory[allocatedFrames[0] * frameSize];
+                return &memory[i * frameSize];  // Return the starting address of the allocated memory block
             }
         }
+
+        return nullptr;
+
+
+
+        /*if (allocationMap[i].isAllocated == false) {
+            consecutiveFreeFrames++;
+            //allocatedFrames.push_back(i);  // Add this frame to allocation list
+        //}
+        /else {
+            consecutiveFreeFrames = 0;  // Reset count if block is allocated
+            //allocatedFrames.clear();  // Reset allocated frames
+        }
+
+        if (consecutiveFreeFrames == framesNeeded) {
+            // We've found enough free contiguous frames, allocate them
+            for (size_t j = 0; j < framesNeeded; ++j) {
+                size_t frameIndex = freeFrameList.front();  // Get the next available frame
+                freeFrameList.pop();  // Remove frame from free list
+                allocatedFrames.push_back(frameIndex);  // Add this frame to allocation list
+                //size_t frameIndex = allocatedFrames[j];
+                allocationMap[frameIndex].isAllocated = true;
+                allocationMap[frameIndex].processName = processName;
+            }
+            // Update the global allocated memory counter
+            totalAllocatedMemory += size;
+
+            // Track the pages allocated to the process
+            processPageMapping[processName].insert(processPageMapping[processName].end(), allocatedFrames.begin(), allocatedFrames.end());
+            // Return the address of the first frame allocated
+            return &memory[allocatedFrames[0] * frameSize];
+        }
+    }*/
 
         // If we reach here, it means allocation failed
         //cout << "Error: Not enough contiguous free memory for process " << processName << endl;
-        return nullptr;
+
+        //return nullptr;
     }
 
 
@@ -310,25 +333,28 @@ public:
             }
         }
 
-        // Deallocate all frames for the oldest process
-        for (size_t i = 0; i < allocationMap.size(); i++) {
-            if (allocationMap[i].isAllocated && allocationMap[i].processName == oldestProcess) {
-                allocationMap[i].isAllocated = false;
-                allocationMap[i].processName = "";
-            }
-        }
-
         if (strategy == "Flat Memory") {
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
                 auto& allocatedPages = processPageMapping[oldestProcess];
                 for (size_t frameNumber : allocatedPages) {
+					cout << "Frame Number " << frameNumber << " is deallocated" << endl;
                     allocationMap[frameNumber].isAllocated = false;
                     allocationMap[frameNumber].processName = "";
                     freeFrameList.push(frameNumber);
+                    
                 }
+
                 processPageMapping.erase(oldestProcess);
             }
         } else if (strategy == "Paging") {
+            // Deallocate all frames for the oldest process
+            for (size_t i = 0; i < allocationMap.size(); i++) {
+                if (allocationMap[i].isAllocated && allocationMap[i].processName == oldestProcess) {
+                    allocationMap[i].isAllocated = false;
+                    allocationMap[i].processName = "";
+                }
+            }
+
             if (processPageMapping.find(oldestProcess) != processPageMapping.end()) {
                 auto& allocatedPages = processPageMapping[oldestProcess];
                 for (size_t pageNumber : allocatedPages) {
@@ -356,8 +382,26 @@ public:
         lock_guard<mutex> lock(mutex3);
 		    
 		if (strategy == "Flat Memory") {
-            
+
             void* temp = &memory[0];
+            size_t index = static_cast<char*>(ptr) - temp;
+            if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
+                cout << "Error: Invalid memory address for deallocation." << endl;
+                return;
+            }
+            size_t frames = (size + frameSize - 1) / frameSize;
+
+            for (size_t i = 0; i < frames; i++) {
+
+                if (allocationMap[(index / frameSize) + i].isAllocated) {
+                    allocationMap[(index / frameSize) + i].isAllocated = false;
+                    allocationMap[(index / frameSize) + i].processName = "";
+                }
+            }
+            numOfProcesses--;
+
+            
+            /*void* temp = &memory[0];
             size_t index = static_cast<char*>(ptr) - static_cast<char*>(temp);
 
             if (index % frameSize != 0 || index / frameSize >= allocationMap.size()) {
@@ -372,12 +416,12 @@ public:
                     break;
                 }
                 
-                //cout << index + i << " " << allocationMap[index + i].isAllocated << endl;
 
                 if (allocationMap[index + i].isAllocated) {
                     allocationMap[index + i].isAllocated = false;
                     allocationMap[index + i].processName = "";
                     validFrames++;
+                    // cout << index + i << " " << allocationMap[index + i].isAllocated << endl;
                 }
                 freeFrameList.push(index + i);
             }
@@ -393,7 +437,7 @@ public:
                 processAges.erase(processName);
             }
 
-            //cout << "Deallocated " << validFrames << " frames for process '" << processName << "'." << endl;
+            //cout << "Deallocated " << validFrames << " frames for process '" << processName << "'." << endl;*/
 		}
         else if (strategy == "Paging") {
 
