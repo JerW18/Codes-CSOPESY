@@ -273,7 +273,7 @@ void clearBackingStoreFiles() {
 		for (const auto& entry : fs::directory_iterator(logDirectory)) {
 			if (entry.is_regular_file()) {
 				const auto& filePath = entry.path();
-				if (filePath.filename().string().rfind("backingstore_", 0) == 0 && filePath.extension() == ".txt") {
+				if (filePath.filename().string().rfind("process_", 0) == 0 && filePath.extension() == ".txt") {
 					fs::remove(filePath);
 				}
 			}
