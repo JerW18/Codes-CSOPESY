@@ -116,16 +116,8 @@ private:
     size_t totalAllocatedMemory = 0;
 public:
     mutex mtx;
-    /*MemoryAllocator(size_t totalMemorySize, size_t frameSize)
-        : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
-        frameSize(frameSize), totalFrames(totalMemorySize / frameSize),
-        totalMemorySize(totalMemorySize), pageTable(totalMemorySize / frameSize),
-        numOfProcesses(0), currentAge(0) {
-        for (size_t i = 0; i < totalFrames; ++i) {
-            freeFrameList.push(i);  
-        }
-    }*/
-    // vector <string> freeFramesFlat;
+
+    list<int> runningProcessesId;
 
     MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
@@ -149,56 +141,72 @@ public:
         }
     }
 
-    
+	void setRunningProcessesId(list<int> runningProcessesId) {
+		this->runningProcessesId = runningProcessesId;
+	}
+
+	void addRunningProcessId(int processId) {
+		runningProcessesId.push_back(processId);
+	}
+
+	void removeRunningProcessId(int processId) {
+		runningProcessesId.remove(processId);
+	}
+
+	void printRunningProcessesId() {
+		cout << "Running Processes: ";
+		for (int processId : runningProcessesId) {
+			cout << processId << " ";
+		}
+		cout << endl;
+	}
+
+    void printProcessAges() {
+        for (const auto& entry : processAges) {
+            cout << entry.first << " " << entry.second << endl;
+        }
+    }
     
     pair<void*, string> allocate(size_t size, string strategy, string processName) {
 		lock_guard<mutex> lock(mtx);
 		pair <void*, string> result;
 		result.first = nullptr;
 		result.second = "";
+
+        void* temp;
+        string replacedProncessName="";
+		//first try to allocate memory
         if (strategy == "Flat Memory") {
-            void* temp = allocateFirstFit(size, processName);
-            string replacedProncessName;
-
-            if (temp == nullptr) {
-                // Swap out the oldest process if allocation failed
-                replacedProncessName = swapOutOldestProcess(strategy);
-                temp = allocateFirstFit(size, processName);  // Retry allocation after swapping
-            }
-            if (temp != nullptr) {
-                numOfProcesses++;
-                processAges[processName] = currentAge++;  // Assign age to the newly allocated process
-            }
-			result.first = temp; //null, "p_x" where x is the process name
-			result.second = replacedProncessName;
-            return result;
-        } else {
-            // Paging allocation logic
-            void* temp = allocatePaging(size, processName);
-            string replacedProcessName;
-
-            if (temp == nullptr) {
-                // Swap out the oldest process if allocation failed
-                replacedProcessName = swapOutOldestProcess(strategy);
-                //cout << replacedProcessName << " was swapped out to make room for new process." << endl;
-                temp = allocatePaging(size, processName);  // Retry allocation after swapping
-            }
-
-            if (temp != nullptr) {
-                numOfProcesses++;
-                processAges[processName] = currentAge++;  // Assign age to the newly allocated process
-            }
-
-            result.first = temp;
-            result.second = replacedProcessName;
-			return result;
+			temp = allocateFirstFit(size, processName);
         }
-    }
+        else
+			temp = allocatePaging(size, processName);
 
-    void printProcessAges() {
-		for (const auto& entry : processAges) {
-			cout << entry.first << " " << entry.second << endl;
+		//try again if allocation failed
+		if (temp == nullptr) {
+			replacedProncessName = swapOutOldestProcess(strategy);
+            //returns empty if nothing was dealloc'd
+            if (replacedProncessName != "") {
+                if (strategy == "Flat Memory") {
+                    temp = allocateFirstFit(size, processName);
+                }
+                else
+                    temp = allocatePaging(size, processName);
+            }
+            else {
+                //cout << "Nada";
+				return result;
+            }
 		}
+
+        if (temp != nullptr) {
+            numOfProcesses++;
+			processAges[processName] = currentAge++;
+        }
+
+		result.first = temp; //null, "p_x" where x is the process name
+		result.second = replacedProncessName;
+		return result;
     }
 
     void* allocateFirstFit(size_t size, string processName) {
@@ -224,42 +232,6 @@ public:
         }
 
         return nullptr;
-
-
-
-        /*if (allocationMap[i].isAllocated == false) {
-            consecutiveFreeFrames++;
-            //allocatedFrames.push_back(i);  // Add this frame to allocation list
-        //}
-        /else {
-            consecutiveFreeFrames = 0;  // Reset count if block is allocated
-            //allocatedFrames.clear();  // Reset allocated frames
-        }
-
-        if (consecutiveFreeFrames == framesNeeded) {
-            // We've found enough free contiguous frames, allocate them
-            for (size_t j = 0; j < framesNeeded; ++j) {
-                size_t frameIndex = freeFrameList.front();  // Get the next available frame
-                freeFrameList.pop();  // Remove frame from free list
-                allocatedFrames.push_back(frameIndex);  // Add this frame to allocation list
-                //size_t frameIndex = allocatedFrames[j];
-                allocationMap[frameIndex].isAllocated = true;
-                allocationMap[frameIndex].processName = processName;
-            }
-            // Update the global allocated memory counter
-            totalAllocatedMemory += size;
-
-            // Track the pages allocated to the process
-            processPageMapping[processName].insert(processPageMapping[processName].end(), allocatedFrames.begin(), allocatedFrames.end());
-            // Return the address of the first frame allocated
-            return &memory[allocatedFrames[0] * frameSize];
-        }
-    }*/
-
-        // If we reach here, it means allocation failed
-        //cout << "Error: Not enough contiguous free memory for process " << processName << endl;
-
-        //return nullptr;
     }
 
 
@@ -289,7 +261,6 @@ public:
                 allocationMap[frameIndex].processName = processName;
             }
 
-			//cout << "Allocated frame " << frameIndex << " for process " << processName << endl;
         }
 
         // Map logical pages to physical frames and track the process
@@ -323,7 +294,7 @@ public:
 		lock_guard<mutex> lock(mtx1);
         if (processAges.empty()) return "";
 
-        // Find the oldest process
+        // Find the oldest process that isnt running
         string oldestProcess;
         int oldestAge = INT_MAX;
         for (const auto& entry : processAges) {
@@ -331,6 +302,11 @@ public:
                 oldestAge = entry.second;
                 oldestProcess = entry.first;
             }
+        }
+        int processId = stoi(oldestProcess.substr(2));
+        if (find(runningProcessesId.begin(), runningProcessesId.end(), processId) != runningProcessesId.end()) {
+            //cout << "Process " << entry.first << " is running, skipping" << endl;
+            return "";
         }
 
         if (strategy == "Flat Memory") {

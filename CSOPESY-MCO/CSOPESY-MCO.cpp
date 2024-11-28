@@ -616,8 +616,10 @@ void rrq() {
 		cout << p->getProcessName() << endl;
 	}
 	
-    memoryAllocator->printFreeFrameList();
-	memoryAllocator->printAllocationMap();
+    //memoryAllocator->printFreeFrameList();
+	//memoryAllocator->printAllocationMap();
+    cpuManager->printRunningProcesses();
+    memoryAllocator->printRunningProcessesId();
 }
 
 void vmstat() {

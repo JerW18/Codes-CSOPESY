@@ -66,11 +66,14 @@ public:
                 continue;
             }
             {
-                lock_guard<mutex> lock(mtx);
                 currentProcess = processes->front();
                 processes->pop_front();
+                if (currentProcess != nullptr && currentProcess->isFinished()) {
+                    //processes->pop_front();
+                    continue;
+                }
             }
-            response = cpuManager->startProcess(currentProcess);
+            /*response = cpuManager->startProcess(currentProcess);
 			if (response == 1) {
 				lock_guard<mutex> lock(mtx);
 				processes->push_back(currentProcess);
@@ -79,7 +82,21 @@ public:
                 lock_guard<mutex> lock(mtx);
                 processes->push_front(currentProcess);
             }
-			response = 3;
+			response = 3;*/
+            if (currentProcess == nullptr) {
+                continue;
+            }
+            response = cpuManager->startProcess(currentProcess);
+            if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes->push_front(currentProcess);
+                cv.notify_all();
+            }
+            if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes->push_front(currentProcess);
+                cv.notify_all();
+            }
         }
     }
 
@@ -91,57 +108,42 @@ public:
         vector<shared_ptr<process>> toAdd;
         while (true) {
             toAdd = cpuManager->isAnyoneAvailable();
-            for (auto& p : toAdd) {
+            /*for (auto& p : toAdd) {
                 addProcess(p);
-            }
+				cout << "Added " << p->getProcessName() << " to the queue" << endl;
+            }*/
             //if (prevCycleCount != cycleCount) {
 
-                {
-                    unique_lock<mutex> lock(mtx);
-                    if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes->empty(); })) {
-                        currentProcess = processes->front();
-                        processes->pop_front();
-						if (currentProcess != nullptr && currentProcess->isFinished()) {
-							//memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
-							continue;
-						}
-                    }
-                    else {
+            {
+                unique_lock<mutex> lock(mtx);
+                if (cv.wait_for(lock, chrono::milliseconds(100), [this] { return !processes->empty(); })) {
+                    currentProcess = processes->front();
+                    processes->pop_front();
+                    if (currentProcess != nullptr && currentProcess->isFinished()) {
+                        //processes->pop_front();
                         continue;
                     }
                 }
+                else {
+                    continue;
+                }
+            }
 
-				if (currentProcess == nullptr) {
-					continue;
-				}
-                //if (flag && currentProcess->hasMemoryAssigned()) {
-                    response = cpuManager->startProcess(currentProcess);
-                    if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-                        //no cpu available so cannot assign memory
-                        //cout << currentProcess->getProcessName() << " here";
-						//cout << currentProcess->getProcessName() << " no cpu available so cannot assign memory" << endl;
-                        lock_guard<mutex> lock(mtx);
-                        processes->push_front(currentProcess);
-                        cv.notify_all();
-                    }
-					if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-                        //kicked out a process but did not have enough space to be allocated
-						//cout << currentProcess->getProcessName() << " kicked out a process but did not have enough space to be allocated" << endl;
-						lock_guard<mutex> lock(mtx);
-						processes->push_front(currentProcess);
-						cv.notify_all();
-					}
-                  
-                //}
-			    
-                
-
-                /*if (  response != -10 && response < 0 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
-                    cout << "here";
-                    lock_guard<mutex> lock(mtx);
-                    processes.push_front(currentProcess);
-                    cv.notify_all();
-                }*/
+            if (currentProcess == nullptr) {
+                continue;
+            }
+            response = cpuManager->startProcess(currentProcess);
+            if (response == -11 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes->push_front(currentProcess);
+                cv.notify_all();
+            }
+            if (response > -1 && currentProcess != nullptr && currentProcess->getCoreAssigned() == -1) {
+                lock_guard<mutex> lock(mtx);
+                processes->push_front(currentProcess);
+                cv.notify_all();
+            }
+        
                 //response = -3;
                 //prevCycleCount = cycleCount;
             //}
