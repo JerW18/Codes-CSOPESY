@@ -50,7 +50,7 @@ private:
                 if (!available && currentProcess != nullptr) {
                     int instructionsExecuted = 0;
                     if (currentProcess != nullptr && !currentProcess->hasMemoryAssigned()) {
-						cout << "Process " << currentProcess->getProcessName() << " does not have memory assigned." << endl;
+						//cout << "Process " << currentProcess->getProcessName() << " does not have memory assigned." << endl;
 						//lock_guard<mutex> lock(*mainMtxAddress);
                         //currentProcess->assignCore(-1); // Unassign core
                         //available = true;

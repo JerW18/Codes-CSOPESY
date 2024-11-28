@@ -296,17 +296,17 @@ void initialize() {
 
         if (maxOverallMem == memPerFrame) {
             memType = "Flat Memory";
+			memoryAllocator = new MemoryAllocator(maxOverallMem, addressof(processes));
         }
         else {
             memType = "Paging";
+            memoryAllocator = new MemoryAllocator(maxOverallMem, memPerFrame, addressof(processes));
         }
 
 		//memType = "Flat Memory";
         cycleThread = thread(runCycleCount);
         cycleThread.detach();
 
-
-        memoryAllocator = new MemoryAllocator (maxOverallMem, memPerFrame, addressof(processes));
         //memoryAllocator = new MemoryAllocator(maxOverallMem, memPerFrame);
         cpuManager = new CPUManager(numCPU, quantumCycles, delaysPerExec, schedulerType, memoryAllocator, addressof(testMtx), *&cycleCount, memType, addressof(processes), addressof(backingStore));
         
