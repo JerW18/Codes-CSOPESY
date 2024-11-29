@@ -64,11 +64,11 @@ private:
                         while (currentProcess != nullptr && instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                             lock_guard<mutex> lock(mtx);
-                            this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
+                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
                             currentProcess->incrementInstructionIndex();
                             instructionsExecuted++;
                             totalInstructionsExecuted++;
-                            this_thread::sleep_for(chrono::milliseconds(1000)); //100*qc count
+                            this_thread::sleep_for(chrono::milliseconds(100)); //100*qc count
                             logMemoryState(totalInstructionsExecuted);
                         }
                         if (currentProcess != nullptr && currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
