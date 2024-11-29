@@ -117,8 +117,8 @@ private:
 public:
     mutex mtx;
 
-    //list<int> runningProcessesId;
-	vector<int> runningProcessesId;
+    atomic list<int>* runningProcessesId;
+	//vector<int> runningProcessesId;
 
     MemoryAllocator(size_t totalMemorySize, size_t frameSize, deque<shared_ptr<process>>* processes)
         : memory(totalMemorySize, 0), allocationMap(totalMemorySize / frameSize),
@@ -142,7 +142,7 @@ public:
         }
     }
 
-	void setRunningProcessesId(vector<int> runningProcessesId) {
+	void setRunningProcessesId(list<int> runningProcessesId) {
 		this->runningProcessesId = runningProcessesId;
 	}
 
@@ -173,7 +173,7 @@ public:
         }
     }
     
-    pair<void*, string> allocate(size_t size, string strategy, string processName, string scheduler) {
+    pair<void*, string> allocate(size_t size, string strategy, string processName, string scheduler, list<int> runningProcessesId) {
 		lock_guard<mutex> lock(mtx);
 		pair <void*, string> result;
 		result.first = nullptr;
@@ -191,7 +191,7 @@ public:
 
 		//try again if allocation failed
 		if (temp == nullptr && scheduler!="fcfs") {
-			replacedProncessName = swapOutOldestProcess(strategy);
+			replacedProncessName = swapOutOldestProcess(strategy, runningProcessesId);
             //returns empty if nothing was dealloc'd
             if (replacedProncessName != "") {
                 if (strategy == "Flat Memory") {
@@ -296,7 +296,7 @@ public:
         return &memory[allocatedFrames[0] * frameSize];
     }
 
-    string swapOutOldestProcess(string strategy) {
+    string swapOutOldestProcess(string strategy, runningProcessesId) {
 		mutex mtx1;
 		lock_guard<mutex> lock(mtx1);
         if (processAges.empty()) return "";

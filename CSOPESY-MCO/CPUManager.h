@@ -34,7 +34,7 @@ private:
 	mutex* mainMtxAddress;
     bool isStarted = false;
 	string memType;
-	list <string>* runningProcesses;
+	atomic list <int>* runningProcesses;
 	deque<shared_ptr<process>>* processes;
 
     void run() {
@@ -77,8 +77,8 @@ private:
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
-                                runningProcesses->remove(currentProcess->getProcessName());
-                                memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                                runningProcesses->remove(currentProcess->getId());
+                                //memoryAllocator->removeRunningProcessId(currentProcess->getId());
                                 //memoryAllocator->removeRunningProcessId(currentProcess->getId());
                             }
                             currentProcess = nullptr;
@@ -86,19 +86,13 @@ private:
                             
                         }
                         else {
-                            /*if (currentProcess->getMemoryAddress() != nullptr && memType == "Flat Memory") {
-                                memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
-                                currentProcess->assignMemoryAddress(nullptr);
-                                currentProcess->setMemoryAssigned(false);
-                            }*/
-							//cout << currentProcess->getProcessName() << " is done running." << endl;
-							//processes.push_back(currentProcess);
+                            
                             lock_guard<mutex> lock(mtx);
                             if (currentProcess != nullptr) {
 								currentProcess->assignCore(-1);
                                 //cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
-                                runningProcesses->remove(currentProcess->getProcessName());
-                                memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                                runningProcesses->remove(currentProcess->getId());
+                                //memoryAllocator->removeRunningProcessId(currentProcess->getId());
 								processes->push_back(currentProcess);
                                 //cout << "Added " << currentProcess->getProcessName() << " to the queue" << endl;
 								currentProcess = nullptr;
@@ -118,8 +112,8 @@ private:
 
                         if (currentProcess != nullptr) {
                             currentProcess->assignCore(-1);
-                            runningProcesses->remove(currentProcess->getProcessName());
-                            memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                            runningProcesses->remove(currentProcess->getId());
+                            //memoryAllocator->removeRunningProcessId(currentProcess->getId());
                             memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                             cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
                             currentProcess = nullptr;
@@ -252,7 +246,7 @@ public:
     }*/
 
     CPUWorker(int id, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
-        mutex* mainMtxAddress, volatile ull& cycleCount, string memType, list<string>* runningProcesses, deque<shared_ptr<process>>* processes)
+        mutex* mainMtxAddress, volatile ull& cycleCount, string memType, atomic list<int>* runningProcesses, deque<shared_ptr<process>>* processes)
         : cpu_Id(id), available(true), currentProcess(nullptr), quantumCycles(quantumCycles), delaysPerExec(delaysPerExec),
         schedulerType(schedulerType), cycleCount(cycleCount), memType(memType) {
 		this->processes = processes;
@@ -308,7 +302,7 @@ private:
 
 public:
 
-    list<string> runningProcesses;
+    atomic list<string> runningProcesses;
     CPUManager(int numCpus, ull quantumCycles, ull delaysPerExec, string schedulerType, MemoryAllocator* allocator,
                 mutex* mainMtxAddress, volatile ull& cycleCount, string memType, deque<shared_ptr<process>>* processes, deque<shared_ptr<process>>* backingStore)
         : numCpus(numCpus), cycleCount(cycleCount), memType(memType){
@@ -344,7 +338,7 @@ public:
         ull pos;
         string temp;
         if (!proc->hasMemoryAssigned()) {
-            pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName(), schedulerType);
+            pair <void*, string> allocatedMemory = allocator->allocate(proc->getMemoryRequired(),memType, proc->getProcessName(), schedulerType, runningProcesses);
 
             if (allocatedMemory.first) {
                 proc->assignMemory(allocatedMemory.first, proc->getMemoryRequired());
@@ -432,8 +426,8 @@ public:
                     lock_guard<mutex> lock(mtx);
                     proc->assignCore(i);
                     cpuWorkers[i]->assignScreen(proc);
-					allocator->addRunningProcessId(proc->getId());
-					runningProcesses.push_back(proc->getProcessName());
+					//allocator->addRunningProcessId(proc->getId());
+					runningProcesses.push_back(proc->getId());
                     return -10; // Process successfully started
                 }
             }
