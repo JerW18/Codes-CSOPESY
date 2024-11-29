@@ -411,7 +411,65 @@ void report() {
         return;
     }
 
+    reportFile << "Cycle count: " << getCycleCount() << endl;
+    if (processScheduler->getSize() == 0)
+    {
+        reportFile << "Size of queue is: 0" << endl;
+    }
+    else
+    {
+        reportFile << "Size of queue is: " << processScheduler->getSize() + 1 << endl;
+    }
     reportFile << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
+    reportFile << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
+    reportFile << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
+    reportFile << "----------------------------------" << endl;
+
+    reportFile << "Running Processes:" << endl;
+    for (auto& screen : sm->processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() != -1) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Core: "
+                << screen->getCoreAssigned() << " Running "
+                << screen->getInstructionIndex() << " / "
+                << screen->getTotalInstructions() << " Memory: "
+                << screen->getMemoryRequired() << " / " <<
+                //(screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                (screen->hasMemoryAssigned() ? "Allocated" : "Not Allocated") << endl;
+        }
+    }
+
+    reportFile << endl;
+
+    reportFile << "Ready Processes (Not in Queue Order):" << endl;
+    for (auto& screen : sm->processes) {
+        if (!screen->isFinished() && screen->getCoreAssigned() == -1) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Core: None"
+                << " Ready "
+                << screen->getInstructionIndex() << " / "
+                << screen->getTotalInstructions() << " Memory: "
+                << screen->getMemoryRequired() << " / " <<
+                //(screen->getMemoryAddress() == nullptr ? "Not allocated" : "Allocated") <<
+                (screen->hasMemoryAssigned() ? "Allocated" : "Not Allocated") << endl;
+        }
+    }
+
+    reportFile << endl;
+    reportFile << "Finished Processes:" << endl;
+
+    for (auto& screen : sm->processes) {
+        if (screen->isFinished()) {
+            reportFile << screen->getProcessName() << " ("
+                << screen->getDateOfBirth() << ") Finished "
+                << screen->getTotalInstructions() << " / "
+                << screen->getTotalInstructions() << " Memory used: "
+                << screen->getMemoryRequired() <<
+                endl;
+        }
+    }
+
+    reportFile << "----------------------------------" << endl;
    
     reportFile.close();
 
@@ -450,7 +508,8 @@ void screens(const string& option, const string& name) {
         cout << "Starting new terminal session: " << name << endl;
 
         ull instructions = randomInsLength();
-        sm->addProcessManually(name, instructions, memPerProc);
+		ull memoryReq = randomMemLength();
+        sm->addProcessManually(name, instructions, memoryReq);
 
         shared_ptr<process> newProcess = sm->processes.back();
         processScheduler->addProcess(newProcess);
@@ -472,7 +531,14 @@ void screens(const string& option, const string& name) {
     else if (option == "-ls") {
 		unique_lock<mutex> lock(testMtx);
 		cout << "Cycle count: " << getCycleCount() << endl;
-		cout << "Size of queue is: " << processScheduler->getSize() << endl;
+        if (processScheduler->getSize() == 0)
+        {
+            cout << "Size of queue is: 0" << endl;
+        }
+        else
+        {
+            cout << "Size of queue is: " << processScheduler->getSize() + 1 << endl;
+        }
         cout << "CPU Utilization: " << ((float)(numCPU - cpuManager->getCoresAvailable()) / numCPU) * 100 << "%" << endl;
         cout << "Cores Used: " << numCPU - cpuManager->getCoresAvailable() << endl;
         cout << "Cores Available: " << cpuManager->getCoresAvailable() << endl;
