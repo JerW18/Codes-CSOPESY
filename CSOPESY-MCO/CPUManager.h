@@ -64,11 +64,11 @@ private:
                         while (currentProcess != nullptr && instructionsExecuted < quantumCycles &&
                             currentProcess->getInstructionIndex() < currentProcess->getTotalInstructions()) {
                             lock_guard<mutex> lock(mtx);
-                            this_thread::sleep_for(chrono::milliseconds(100 * delaysPerExec));
+                            this_thread::sleep_for(chrono::milliseconds(1000 * delaysPerExec));
                             currentProcess->incrementInstructionIndex();
                             instructionsExecuted++;
                             totalInstructionsExecuted++;
-                            this_thread::sleep_for(chrono::milliseconds(100)); //100*qc count
+                            this_thread::sleep_for(chrono::milliseconds(1000)); //100*qc count
                             logMemoryState(totalInstructionsExecuted);
                         }
                         if (currentProcess != nullptr && currentProcess->getInstructionIndex() >= currentProcess->getTotalInstructions()) {
@@ -77,9 +77,11 @@ private:
                                 memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
                                 currentProcess->assignMemoryAddress(nullptr);
                                 currentProcess->setMemoryAssigned(false);
-                                runningProcesses->remove(currentProcess->getProcessName());
-                                memoryAllocator->removeRunningProcessId(currentProcess->getId());
-                                //memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                                //runningProcesses->remove(currentProcess->getProcessName());
+                                {
+									lock_guard<mutex> lock(*mainMtxAddress);
+									memoryAllocator->removeRunningProcessId(currentProcess->getId());
+                                }
                             }
                             currentProcess = nullptr;
                             this->available = true;
@@ -97,7 +99,7 @@ private:
                             if (currentProcess != nullptr) {
 								currentProcess->assignCore(-1);
                                 //cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
-                                runningProcesses->remove(currentProcess->getProcessName());
+                                //runningProcesses->remove(currentProcess->getProcessName());
                                 memoryAllocator->removeRunningProcessId(currentProcess->getId());
 								processes->push_back(currentProcess);
                                 //cout << "Added " << currentProcess->getProcessName() << " to the queue" << endl;
@@ -118,10 +120,10 @@ private:
 
                         if (currentProcess != nullptr) {
                             currentProcess->assignCore(-1);
-                            runningProcesses->remove(currentProcess->getProcessName());
+                            //runningProcesses->remove(currentProcess->getProcessName());
                             memoryAllocator->removeRunningProcessId(currentProcess->getId());
                             memoryAllocator->deallocate(currentProcess->getMemoryAddress(), currentProcess->getMemoryRequired(), memType, currentProcess->getProcessName());
-                            cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
+                            //cout << "Process " << currentProcess->getProcessName() << " is done running." << endl;
                             currentProcess = nullptr;
                         }
                         available = true;
@@ -433,7 +435,7 @@ public:
                     proc->assignCore(i);
                     cpuWorkers[i]->assignScreen(proc);
 					allocator->addRunningProcessId(proc->getId());
-					runningProcesses.push_back(proc->getProcessName());
+					//runningProcesses.push_back(proc->getProcessName());
                     return -10; // Process successfully started
                 }
             }
@@ -493,7 +495,7 @@ public:
 				shared_ptr<process> currentProcess = cpu->getCurrentProcess();
 
                 if (currentProcess->getId() == preemptedProcessId && currentProcess->hasMemoryAssigned()) {
-					cout << "it didnt fucking work." << endl;
+					cout << "it didnt work." << endl;
                 }
             }
         }

@@ -351,6 +351,7 @@ public:
                         allocationMap[frameNumber].isAllocated = false;
                         allocationMap[frameNumber].processName = "";
                         freeFrameList.push(frameNumber);
+                        pageOut++;
                     }
                 }
                 processPageMapping.erase(oldestProcess);
