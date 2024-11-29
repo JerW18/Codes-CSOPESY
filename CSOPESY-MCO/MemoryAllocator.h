@@ -3,6 +3,142 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <iostream>
+#include <algorithm>
+
+class MemoryAllocator {
+private:
+    std::string memType;
+    int maxOverallMem;
+    int memPerFrame; // For paging
+
+    // Common Data
+    std::vector<std::string> memoryBlocks;
+
+    // Paging-specific data
+    std::unordered_map<int, std::vector<int>> pageTable; // Process to frames mapping
+    std::vector<bool> frameBitmap;
+
+public:
+    // Constructor for flat memory
+    MemoryAllocator(int maxMem)
+        : maxOverallMem(maxMem), memPerFrame(0), memType("Flat Memory") {
+        memoryBlocks.resize(maxMem, ""); // Initialize flat memory
+    }
+
+    // Constructor for paging memory
+    MemoryAllocator(int maxMem, int frameSize)
+        : maxOverallMem(maxMem), memPerFrame(frameSize), memType("Paging") {
+        int numFrames = maxMem / frameSize;
+        frameBitmap.resize(numFrames, false); // Initialize bitmap
+    }
+
+    // Allocate memory
+    std::pair<void*, std::string> allocate(
+        int requestedSize, const std::string& memType, const std::string& processName, const std::string& schedulerType) {
+        if (memType == "Flat Memory") {
+            // Flat Memory Allocation
+            for (int i = 0; i <= maxOverallMem - requestedSize; i++) {
+                bool spaceAvailable = true;
+                for (int j = 0; j < requestedSize; j++) {
+                    if (!memoryBlocks[i + j].empty()) {
+                        spaceAvailable = false;
+                        break;
+                    }
+                }
+
+                if (spaceAvailable) {
+                    for (int j = 0; j < requestedSize; j++) {
+                        memoryBlocks[i + j] = processName;
+                    }
+                    return {nullptr, "Flat Memory allocation successful"};
+                }
+            }
+            return {nullptr, "Flat Memory allocation failed"};
+        } else if (memType == "Paging") {
+            // Paging Memory Allocation
+            int numFramesNeeded = (requestedSize + memPerFrame - 1) / memPerFrame; // Ceiling division
+            std::vector<int> allocatedFrames;
+
+            for (int i = 0; i < frameBitmap.size() && numFramesNeeded > 0; i++) {
+                if (!frameBitmap[i]) {
+                    frameBitmap[i] = true;
+                    allocatedFrames.push_back(i);
+                    numFramesNeeded--;
+                }
+            }
+
+            if (numFramesNeeded == 0) {
+                pageTable[std::stoi(processName)] = allocatedFrames; // Assign frames to process
+                return {nullptr, "Paging allocation successful"};
+            }
+
+            // Rollback in case of failure
+            for (int frame : allocatedFrames) {
+                frameBitmap[frame] = false;
+            }
+            return {nullptr, "Paging allocation failed"};
+        }
+
+        return {nullptr, "Invalid memory type"};
+    }
+
+    // Deallocate memory
+    void deallocate(const std::string& processName, const std::string& memType) {
+        if (memType == "Flat Memory") {
+            // Flat Memory Deallocation
+            for (auto& block : memoryBlocks) {
+                if (block == processName) {
+                    block = "";
+                }
+            }
+        } else if (memType == "Paging") {
+            // Paging Memory Deallocation
+            int processId = std::stoi(processName);
+            if (pageTable.find(processId) != pageTable.end()) {
+                for (int frame : pageTable[processId]) {
+                    frameBitmap[frame] = false;
+                }
+                pageTable.erase(processId);
+            }
+        }
+    }
+
+    // Print Memory State
+    void printMemoryState() {
+        if (memType == "Flat Memory") {
+            std::cout << "Flat Memory State:\n";
+            for (int i = 0; i < memoryBlocks.size(); i++) {
+                if (memoryBlocks[i].empty()) {
+                    std::cout << "[ ]";
+                } else {
+                    std::cout << "[" << memoryBlocks[i] << "]";
+                }
+                if ((i + 1) % 10 == 0) std::cout << "\n"; // Format in rows of 10
+            }
+        } else if (memType == "Paging") {
+            std::cout << "Paging Memory State:\n";
+            for (const auto& [process, frames] : pageTable) {
+                std::cout << "Process " << process << ": ";
+                for (int frame : frames) {
+                    std::cout << frame << " ";
+                }
+                std::cout << "\n";
+            }
+        }
+    }
+};
+
+
+
+
+
+
+
+/*
 #include <vector>
 #include <iostream>
 #include <sstream>
@@ -619,4 +755,5 @@ public:
 	}
 };
 
+*/
 #endif
